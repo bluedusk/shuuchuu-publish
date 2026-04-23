@@ -1,6 +1,6 @@
 import AVFoundation
 
-final class ProceduralNoiseSource: NoiseSource {
+final class ProceduralNoiseSource: NoiseSource, @unchecked Sendable {
     let id: String
     let displayName: String
     let node: AVAudioNode

@@ -1,6 +1,6 @@
 import AVFoundation
 
-protocol NoiseSource: AnyObject {
+protocol NoiseSource: AnyObject, Sendable {
     var id: String { get }
     var displayName: String { get }
     var node: AVAudioNode { get }

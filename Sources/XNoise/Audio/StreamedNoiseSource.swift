@@ -1,6 +1,6 @@
 import AVFoundation
 
-final class StreamedNoiseSource: NoiseSource {
+final class StreamedNoiseSource: NoiseSource, @unchecked Sendable {
     let id: String
     let displayName: String
     let node: AVAudioNode

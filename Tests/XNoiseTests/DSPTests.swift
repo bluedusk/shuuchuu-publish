@@ -65,4 +65,35 @@ final class DSPTests: XCTestCase {
         for i in 1..<buf.count where (buf[i-1] < 0) != (buf[i] < 0) { count += 1 }
         return count
     }
+
+    func testGreenNoiseBounded() {
+        var r = GreenNoiseRenderer(sampleRate: sampleRate)
+        let buf = render(&r)
+        let peak = buf.map(abs).max() ?? 0
+        XCTAssertLessThanOrEqual(peak, 1.01)
+        XCTAssertGreaterThan(rms(buf), 0.05)
+    }
+
+    func testFluorescentHumHasPeriodicStructure() {
+        var r = FluorescentHumRenderer(sampleRate: sampleRate)
+        var tmp = [Float](repeating: 0, count: 48000)
+        let frameCount = tmp.count
+        tmp.withUnsafeMutableBufferPointer { ptr in
+            r.render(into: ptr.baseAddress!, frameCount: frameCount)
+        }
+        let peak = tmp.map(abs).max() ?? 0
+        XCTAssertLessThanOrEqual(peak, 1.01)
+        XCTAssertGreaterThan(rms(tmp), 0.05)
+
+        let acf800 = autocorrelation(tmp, lag: 800)
+        let acf400 = autocorrelation(tmp, lag: 400)
+        XCTAssertGreaterThan(acf800, acf400)
+    }
+
+    private func autocorrelation(_ buf: [Float], lag: Int) -> Float {
+        var sum: Float = 0
+        let n = buf.count - lag
+        for i in 0..<n { sum += buf[i] * buf[i + lag] }
+        return sum / Float(n)
+    }
 }

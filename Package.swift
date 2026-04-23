@@ -8,6 +8,8 @@ let package = Package(
         .executableTarget(
             name: "XNoise",
             path: "Sources/XNoise",
+            exclude: ["Resources/Info.plist"],
+            resources: [.process("Resources")],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
             ],

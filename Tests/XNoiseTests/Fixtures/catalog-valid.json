@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "categories": [
+    {
+      "id": "noise",
+      "name": "Noise",
+      "tracks": [
+        { "id": "white", "name": "White Noise", "kind": "procedural", "variant": "white" },
+        { "id": "pink",  "name": "Pink Noise",  "kind": "procedural", "variant": "pink" }
+      ]
+    },
+    {
+      "id": "soundscapes",
+      "name": "Soundscapes",
+      "tracks": [
+        {
+          "id": "rain",
+          "name": "Rain",
+          "kind": "streamed",
+          "url": "https://cdn.example/rain.caf",
+          "sha256": "d2a84f4b8b650937ec8f73cd8be2c74add5a911ba64df27458ed8229da804a26",
+          "bytes": 3456789,
+          "durationSec": 60,
+          "artworkUrl": "https://cdn.example/art/rain.jpg"
+        }
+      ]
+    }
+  ]
+}

@@ -20,10 +20,11 @@ struct Track: Codable, Equatable, Identifiable {
     enum Kind: Equatable {
         case procedural(ProceduralVariant)
         case streamed(StreamedInfo)
+        case bundled(filename: String)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, kind, variant, url, sha256, bytes, durationSec, artworkUrl
+        case id, name, kind, variant, url, sha256, bytes, durationSec, filename, artworkUrl
     }
 
     init(id: String, name: String, kind: Kind, artworkUrl: URL?) {
@@ -52,6 +53,9 @@ struct Track: Codable, Equatable, Identifiable {
                 durationSec: try c.decodeIfPresent(Double.self, forKey: .durationSec)
             )
             kind = .streamed(info)
+        case "bundled":
+            let filename = try c.decode(String.self, forKey: .filename)
+            kind = .bundled(filename: filename)
         default:
             throw DecodingError.dataCorruptedError(
                 forKey: .kind, in: c,
@@ -75,6 +79,9 @@ struct Track: Codable, Equatable, Identifiable {
             try c.encode(info.sha256, forKey: .sha256)
             try c.encode(info.bytes, forKey: .bytes)
             try c.encodeIfPresent(info.durationSec, forKey: .durationSec)
+        case .bundled(let filename):
+            try c.encode("bundled", forKey: .kind)
+            try c.encode(filename, forKey: .filename)
         }
     }
 }

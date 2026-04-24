@@ -21,6 +21,24 @@ struct URLSessionFetcher: CatalogFetcher {
     }
 }
 
+/// Reads the catalog from the app bundle (learning / offline-first mode).
+struct BundleCatalogFetcher: CatalogFetcher {
+    let resource: String
+    let ext: String
+
+    init(resource: String = "catalog", ext: String = "json") {
+        self.resource = resource
+        self.ext = ext
+    }
+
+    func fetch() async throws -> Data {
+        guard let url = Bundle.module.url(forResource: resource, withExtension: ext) else {
+            throw URLError(.fileDoesNotExist)
+        }
+        return try Data(contentsOf: url)
+    }
+}
+
 @MainActor
 final class Catalog: ObservableObject {
     enum State: Equatable {

@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Generate catalog.json from the sounds/ folder.
+"""Generate the bundled catalog.json that ships inside the app.
+
+Scans Sources/XNoise/Resources/sounds/ for MP3 files and produces a
+catalog document with `kind: "bundled"` entries. The app reads this
+file from its Bundle at launch — no HTTP server, no R2, no downloads.
 
 Run from project root:
-    python3 scripts/gen-catalog.py --base-url http://localhost:8000 > catalog.json
+    python3 scripts/gen-catalog.py > Sources/XNoise/Resources/catalog.json
 """
 import argparse
-import hashlib
 import json
 import os
 import sys
 
-# Categorization matching Momentum's taxonomy.
+# Momentum-style taxonomy — track id (matches filename stem) per category.
 CATEGORIES = [
     ("noise", "Noise", [
         "white_noise", "pink_noise", "brown_noise", "green_noise", "fluorescent_hum",
@@ -38,15 +41,7 @@ def pretty_name(track_id: str) -> str:
     return track_id.replace("_", " ").title()
 
 
-def sha256_of(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 16), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def build(sounds_dir: str, base_url: str) -> dict:
+def build(sounds_dir: str) -> dict:
     categories = []
     seen = set()
 
@@ -59,19 +54,15 @@ def build(sounds_dir: str, base_url: str) -> dict:
                 print(f"warn: missing {fpath}", file=sys.stderr)
                 continue
             seen.add(fname)
-            size = os.path.getsize(fpath)
             tracks.append({
                 "id": tid,
                 "name": pretty_name(tid),
-                "kind": "streamed",
-                "url": f"{base_url.rstrip('/')}/{fname}",
-                "sha256": sha256_of(fpath),
-                "bytes": size,
+                "kind": "bundled",
+                "filename": fname,
             })
         if tracks:
             categories.append({"id": cat_id, "name": cat_name, "tracks": tracks})
 
-    # Report any files on disk we didn't place
     on_disk = {f for f in os.listdir(sounds_dir) if f.endswith(".mp3")}
     unplaced = on_disk - seen
     if unplaced:
@@ -82,11 +73,10 @@ def build(sounds_dir: str, base_url: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sounds-dir", default="sounds")
-    ap.add_argument("--base-url", default="http://localhost:8000")
+    ap.add_argument("--sounds-dir", default="Sources/XNoise/Resources/sounds")
     args = ap.parse_args()
 
-    doc = build(args.sounds_dir, args.base_url)
+    doc = build(args.sounds_dir)
     json.dump(doc, sys.stdout, indent=2)
     sys.stdout.write("\n")
 

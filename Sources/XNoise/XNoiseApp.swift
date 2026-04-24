@@ -33,7 +33,7 @@ extension AppModel {
             .appendingPathComponent("x-noise")
         try? FileManager.default.createDirectory(at: appSupportDir, withIntermediateDirectories: true)
         let catalog = Catalog(
-            fetcher: URLSessionFetcher(url: Constants.catalogURL),
+            fetcher: BundleCatalogFetcher(),
             cacheFile: appSupportDir.appendingPathComponent(Constants.catalogCacheFilename)
         )
         let cache = AudioCache(baseDir: cachesDir, downloader: URLSessionDownloader())

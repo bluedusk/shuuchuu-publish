@@ -46,6 +46,10 @@ final class AppModel: ObservableObject {
             )
         case .streamed:
             source = StreamedNoiseSource(track: track, cache: cache)
+        case .bundled(let filename):
+            source = BundledNoiseSource(
+                id: track.id, displayName: track.name, filename: filename
+            )
         }
         currentTrack = track
         await audio.play(source)

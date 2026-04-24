@@ -54,6 +54,9 @@ final class AudioController: ObservableObject {
         if let streamed = source as? StreamedNoiseSource {
             streamed.scheduleLoop()
             (streamed.node as? AVAudioPlayerNode)?.play()
+        } else if let bundled = source as? BundledNoiseSource {
+            bundled.scheduleLoop()
+            (bundled.node as? AVAudioPlayerNode)?.play()
         }
 
         await fade(from: 0, to: volume, durationMs: Constants.fadeInMs)

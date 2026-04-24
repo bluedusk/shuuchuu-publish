@@ -3,12 +3,20 @@ import AppKit
 
 @main
 struct XNoiseApp: App {
-    @StateObject private var model = AppModel.live()
+    @StateObject private var model: AppModel
+    @StateObject private var design: DesignSettings
+
+    init() {
+        let d = DesignSettings()
+        _design = StateObject(wrappedValue: d)
+        _model  = StateObject(wrappedValue: AppModel.live(design: d))
+    }
 
     var body: some Scene {
         MenuBarExtra {
             PopoverView()
                 .environmentObject(model)
+                .environmentObject(design)
                 .task { await model.handleLaunch() }
                 .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in
                     Task { await model.handleSleep() }
@@ -17,7 +25,9 @@ struct XNoiseApp: App {
                     Task { await model.handleWake() }
                 }
         } label: {
-            MenubarLabel().environmentObject(model)
+            MenubarLabel()
+                .environmentObject(model)
+                .environmentObject(design)
         }
         .menuBarExtraStyle(.window)
     }
@@ -25,7 +35,7 @@ struct XNoiseApp: App {
 
 extension AppModel {
     @MainActor
-    static func live() -> AppModel {
+    static func live(design: DesignSettings) -> AppModel {
         let prefs = Preferences()
         let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(Constants.audioCacheDirName)
@@ -37,7 +47,19 @@ extension AppModel {
             cacheFile: appSupportDir.appendingPathComponent(Constants.catalogCacheFilename)
         )
         let cache = AudioCache(baseDir: cachesDir, downloader: URLSessionDownloader())
-        let audio = AudioController()
-        return AppModel(catalog: catalog, audio: audio, cache: cache, prefs: prefs)
+        let mixer = MixingController()
+        let focusSettings = FocusSettings()
+        let session = FocusSession(settings: focusSettings)
+        let favorites = Favorites()
+        return AppModel(
+            catalog: catalog,
+            mixer: mixer,
+            cache: cache,
+            focusSettings: focusSettings,
+            session: session,
+            design: design,
+            favorites: favorites,
+            prefs: prefs
+        )
     }
 }

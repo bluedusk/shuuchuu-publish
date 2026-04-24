@@ -5,3 +5,7 @@
 xcuserdata/
 *.xcuserstate
 default.profraw
+
+# local dev content — sound files are not part of the repo
+sounds/
+catalog.json

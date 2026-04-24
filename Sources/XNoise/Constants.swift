@@ -2,7 +2,7 @@ import Foundation
 
 enum Constants {
     // MARK: - Catalog
-    static let catalogURL = URL(string: "https://x-noise.example/catalog.json")!
+    static let catalogURL = URL(string: "http://localhost:8000/catalog.json")!
     static let catalogCacheFilename = "catalog.json"
 
     // MARK: - Audio cache

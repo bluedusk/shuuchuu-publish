@@ -103,7 +103,6 @@ final class FocusSession: ObservableObject {
 }
 
 /// Durations / counts for the pomodoro. Mirrors the design's Settings page.
-@MainActor
 final class FocusSettings: ObservableObject {
     @Published var focusMin: Int       { didSet { defaults.set(focusMin, forKey: K.focus) } }
     @Published var shortBreakMin: Int  { didSet { defaults.set(shortBreakMin, forKey: K.shortBreak) } }

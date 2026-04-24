@@ -80,10 +80,8 @@ struct SoundTile: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
         } else {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Rectangle().fill(Color.white.opacity(0.04))
-            }
+            Color.white.opacity(0.04)
+                .background(.ultraThinMaterial)
         }
     }
 

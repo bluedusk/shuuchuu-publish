@@ -24,7 +24,6 @@ enum AppTheme: String, CaseIterable, Codable, Identifiable {
 
 /// All user-customizable look-and-feel state. Persisted to UserDefaults.
 /// Mirrors the tweaks panel from the design bundle.
-@MainActor
 final class DesignSettings: ObservableObject {
     @Published var accentHue: Double { didSet { defaults.set(accentHue, forKey: K.accentHue) } }
     @Published var wallpaper: WallpaperMode { didSet { defaults.set(wallpaper.rawValue, forKey: K.wallpaper) } }

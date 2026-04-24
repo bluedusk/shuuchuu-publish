@@ -2,7 +2,6 @@ import Foundation
 import Combine
 
 /// Persistent set of favorited track ids.
-@MainActor
 final class Favorites: ObservableObject {
     @Published private(set) var ids: Set<String>
 

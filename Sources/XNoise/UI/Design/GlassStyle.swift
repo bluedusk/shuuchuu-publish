@@ -9,34 +9,25 @@ struct GlassPanel: ViewModifier {
     var sheen: Bool = true
 
     func body(content: Content) -> some View {
-        content
-            .background(backgroundLayers)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(stroke), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-
-    @ViewBuilder
-    private var backgroundLayers: some View {
-        ZStack {
-            if theme == .dark {
-                Rectangle().fill(.ultraThinMaterial)
-            } else {
-                Rectangle().fill(.thinMaterial)
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return content
+            .background(alignment: .top) {
+                ZStack {
+                    Color.white.opacity(opacity)
+                    if sheen {
+                        RadialGradient(
+                            colors: [Color.white.opacity(0.40), .clear],
+                            center: .init(x: 0.20, y: -0.10),
+                            startRadius: 10,
+                            endRadius: 240
+                        )
+                        .blendMode(.overlay)
+                    }
+                }
             }
-            Rectangle().fill(Color.white.opacity(opacity))
-            if sheen {
-                RadialGradient(
-                    colors: [Color.white.opacity(0.40), .clear],
-                    center: .init(x: 0.20, y: -0.10),
-                    startRadius: 10,
-                    endRadius: 240
-                )
-                .blendMode(.overlay)
-            }
-        }
+            .background(theme == .dark ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.thinMaterial), in: shape)
+            .overlay { shape.strokeBorder(Color.white.opacity(stroke), lineWidth: 1) }
+            .clipShape(shape)
     }
 }
 
@@ -47,18 +38,12 @@ struct GlassChip: ViewModifier {
     let theme: AppTheme
 
     func body(content: Content) -> some View {
-        content
-            .background(
-                ZStack {
-                    Rectangle().fill(.thinMaterial)
-                    Rectangle().fill(Color.white.opacity(opacity + 0.02))
-                }
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(stroke + 0.06), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return content
+            .background(Color.white.opacity(opacity + 0.02))
+            .background(.thinMaterial, in: shape)
+            .overlay { shape.strokeBorder(Color.white.opacity(stroke + 0.06), lineWidth: 1) }
+            .clipShape(shape)
     }
 }
 

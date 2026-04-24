@@ -3,8 +3,8 @@ import SwiftUI
 struct SoundsPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
-    @ObservedObject var favorites: Favorites
-    @ObservedObject var mixer: MixingController
+    @EnvironmentObject var favorites: Favorites
+    @EnvironmentObject var mixer: MixingController
 
     private let cols = Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
 
@@ -27,21 +27,23 @@ struct SoundsPage: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("Done") { model.goTo(.focus) }
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule().fill(
-                        LinearGradient(
-                            colors: [design.accent, design.accentDark],
-                            startPoint: .top, endPoint: .bottom
+            Button { model.goTo(.focus) } label: {
+                Text("Done")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule().fill(
+                            LinearGradient(
+                                colors: [design.accent, design.accentDark],
+                                startPoint: .top, endPoint: .bottom
+                            )
                         )
                     )
-                )
-                .shadow(color: design.accent.opacity(0.6), radius: 8)
-                .buttonStyle(.plain)
+                    .shadow(color: design.accent.opacity(0.6), radius: 8)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -63,18 +65,14 @@ struct SoundsPage: View {
 
     private func pill(_ f: CategoryFilter) -> some View {
         let isOn = model.categoryFilter == f
-        return Button(action: { model.categoryFilter = f }) {
+        return Button { model.categoryFilter = f } label: {
             Text(f.display)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(isOn ? .primary : .secondary)
+                .foregroundStyle(isOn ? Color.primary : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(
-                    Capsule().fill(Color.white.opacity(isOn ? 0.14 : 0.04))
-                )
-                .overlay(
-                    Capsule().strokeBorder(Color.white.opacity(isOn ? 0.30 : 0.12), lineWidth: 1)
-                )
+                .background(Capsule().fill(Color.white.opacity(isOn ? 0.14 : 0.04)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(isOn ? 0.30 : 0.12), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -121,14 +119,16 @@ struct SoundsPage: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 5) {
                     ForEach(Presets.all) { preset in
-                        Button(preset.name) {
+                        Button {
                             Task { await model.applyPreset(preset) }
+                        } label: {
+                            Text(preset.name)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 5)
+                                .glassChip(cornerRadius: 14, design: design)
                         }
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 5)
-                        .glassChip(cornerRadius: 14, design: design)
                         .buttonStyle(.plain)
                     }
                 }

@@ -3,33 +3,22 @@ import SwiftUI
 struct FocusPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
-    @ObservedObject var session: FocusSession
-    @ObservedObject var mixer: MixingController
+    @EnvironmentObject var session: FocusSession
+    @EnvironmentObject var mixer: MixingController
 
     var body: some View {
         VStack(spacing: 0) {
             header
-
-            ring
-                .padding(.top, 18)
-                .padding(.bottom, 14)
-
-            transport
-                .padding(.bottom, 14)
-
-            mixList
-                .padding(.horizontal, 14)
-
+            ring.padding(.top, 18).padding(.bottom, 14)
+            transport.padding(.bottom, 14)
+            mixList.padding(.horizontal, 14)
             Spacer(minLength: 0)
-
             addSoundButton
                 .padding(.horizontal, 14)
                 .padding(.bottom, 14)
                 .padding(.top, 10)
         }
     }
-
-    // MARK: - Header
 
     private var header: some View {
         HStack(alignment: .center, spacing: 8) {
@@ -48,10 +37,7 @@ struct FocusPage: View {
         .padding(.top, 14)
     }
 
-    // MARK: - Ring
-
     private var ring: some View {
-        let total = session.totalSec
         let remain = session.remainingSec
         let mm = String(format: "%02d", remain / 60)
         let ss = String(format: "%02d", remain % 60)
@@ -70,28 +56,24 @@ struct FocusPage: View {
             label: "\(mm):\(ss)",
             caption: caption
         )
-        .id(total)  // force re-render on phase change
     }
-
-    // MARK: - Transport
 
     private var transport: some View {
         HStack(spacing: 14) {
             IconButton(systemName: "arrow.counterclockwise", size: 32) { session.reset() }
 
-            Button(action: { session.toggle() }) {
+            Button { session.toggle() } label: {
                 Image(systemName: session.isRunning ? "pause.fill" : "play.fill")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(Color.white)
                     .frame(width: 48, height: 48)
                     .background(
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [design.accent, design.accentDark],
-                                    startPoint: .top, endPoint: .bottom
-                                )
+                        Circle().fill(
+                            LinearGradient(
+                                colors: [design.accent, design.accentDark],
+                                startPoint: .top, endPoint: .bottom
                             )
+                        )
                     )
                     .shadow(color: design.accent.opacity(0.6), radius: 10, y: 4)
             }
@@ -100,8 +82,6 @@ struct FocusPage: View {
             IconButton(systemName: "forward.end.fill", size: 32) { session.skip() }
         }
     }
-
-    // MARK: - Mix list
 
     private var mixList: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -115,18 +95,7 @@ struct FocusPage: View {
             ScrollView {
                 VStack(spacing: 6) {
                     if activeCount == 0 {
-                        Text("No sounds selected")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(
-                                        Color.white.opacity(0.15),
-                                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                                    )
-                            )
+                        emptyPlaceholder
                     } else {
                         ForEach(Array(mixer.live.values), id: \.id) { live in
                             if let track = model.findTrack(id: live.id) {
@@ -145,13 +114,25 @@ struct FocusPage: View {
         }
     }
 
-    // MARK: - Add sound
+    private var emptyPlaceholder: some View {
+        Text("No sounds selected")
+            .font(.system(size: 11))
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(
+                        Color.white.opacity(0.15),
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                    )
+            )
+    }
 
     private var addSoundButton: some View {
-        Button(action: { model.goTo(.sounds) }) {
+        Button { model.goTo(.sounds) } label: {
             HStack(spacing: 7) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
+                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
                 Text(mixer.live.isEmpty ? "Choose sounds" : "Add sound")
                     .font(.system(size: 12, weight: .medium))
             }

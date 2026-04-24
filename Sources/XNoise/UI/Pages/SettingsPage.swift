@@ -3,98 +3,18 @@ import SwiftUI
 struct SettingsPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
-    @ObservedObject var settings: FocusSettings
+    @EnvironmentObject var settings: FocusSettings
 
     var body: some View {
         VStack(spacing: 0) {
             header
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    section("Session") {
-                        SettingRow(label: "Focus duration") {
-                            SegControl(
-                                selection: Binding(get: { settings.focusMin }, set: { settings.focusMin = $0 }),
-                                options: [15, 25, 45, 60],
-                                label: { "\($0)m" },
-                                accent: design.accent
-                            )
-                        }
-                        SettingRow(label: "Short break") {
-                            SegControl(
-                                selection: Binding(get: { settings.shortBreakMin }, set: { settings.shortBreakMin = $0 }),
-                                options: [3, 5, 10],
-                                label: { "\($0)m" },
-                                accent: design.accent
-                            )
-                        }
-                        SettingRow(label: "Long break") {
-                            SegControl(
-                                selection: Binding(get: { settings.longBreakMin }, set: { settings.longBreakMin = $0 }),
-                                options: [15, 20, 30],
-                                label: { "\($0)m" },
-                                accent: design.accent
-                            )
-                        }
-                        SettingRow(label: "Sessions per cycle") {
-                            Stepper(
-                                value: Binding(get: { settings.cycles }, set: { settings.cycles = max(1, min(8, $0)) }),
-                                in: 1...8
-                            ) {
-                                Text("\(settings.cycles)").monospacedDigit()
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            .labelsHidden()
-                        }
-                    }
-
-                    section("Sound") {
-                        SettingRow(label: "Fade in") {
-                            SegControl(
-                                selection: Binding(get: { settings.fadeIn }, set: { settings.fadeIn = $0 }),
-                                options: FadeIn.allCases,
-                                label: { $0.display },
-                                accent: design.accent
-                            )
-                        }
-                        SettingRow(label: "Fade out on session end") {
-                            GlassToggle(isOn: Binding(get: { settings.fadeOut }, set: { settings.fadeOut = $0 }), accent: design.accent)
-                        }
-                        SettingRow(label: "Auto-pause sound on break") {
-                            GlassToggle(isOn: Binding(get: { settings.pauseOnBreak }, set: { settings.pauseOnBreak = $0 }), accent: design.accent)
-                        }
-                    }
-
-                    section("Notifications") {
-                        SettingRow(label: "Session end chime") {
-                            GlassToggle(isOn: Binding(get: { settings.chime }, set: { settings.chime = $0 }), accent: design.accent)
-                        }
-                        SettingRow(label: "Break reminders") {
-                            GlassToggle(isOn: Binding(get: { settings.breakReminder }, set: { settings.breakReminder = $0 }), accent: design.accent)
-                        }
-                    }
-
-                    section("App") {
-                        SettingRow(label: "Launch at login") {
-                            GlassToggle(isOn: Binding(get: { settings.launchAtLogin }, set: { settings.launchAtLogin = $0 }), accent: design.accent)
-                        }
-                        SettingRow(label: "Show timer in menubar") {
-                            GlassToggle(isOn: Binding(get: { settings.menubarTimer }, set: { settings.menubarTimer = $0 }), accent: design.accent)
-                        }
-                        SettingRow(label: "Keyboard shortcut") {
-                            Text("⌥⌘ N")
-                                .font(.system(size: 10, design: .monospaced))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .glassChip(cornerRadius: 5, design: design)
-                        }
-                    }
-
-                    Text("x-noise · v1.0 · Quit ⌘Q")
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 16)
-                        .padding(.bottom, 12)
+                    sessionSection
+                    soundSection
+                    notificationsSection
+                    appSection
+                    footer
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -114,15 +34,113 @@ struct SettingsPage: View {
         .overlay(Divider().opacity(0.3), alignment: .bottom)
     }
 
-    @ViewBuilder
-    private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+    private var sessionSection: some View {
+        Group {
+            sectionLabel("Session")
+            SettingRow(label: "Focus duration") {
+                SegControl(
+                    selection: Binding(get: { settings.focusMin }, set: { settings.focusMin = $0 }),
+                    options: [15, 25, 45, 60],
+                    label: { "\($0)m" },
+                    accent: design.accent
+                )
+            }
+            SettingRow(label: "Short break") {
+                SegControl(
+                    selection: Binding(get: { settings.shortBreakMin }, set: { settings.shortBreakMin = $0 }),
+                    options: [3, 5, 10],
+                    label: { "\($0)m" },
+                    accent: design.accent
+                )
+            }
+            SettingRow(label: "Long break") {
+                SegControl(
+                    selection: Binding(get: { settings.longBreakMin }, set: { settings.longBreakMin = $0 }),
+                    options: [15, 20, 30],
+                    label: { "\($0)m" },
+                    accent: design.accent
+                )
+            }
+            SettingRow(label: "Sessions per cycle") {
+                Stepper(
+                    value: Binding(get: { settings.cycles }, set: { settings.cycles = max(1, min(8, $0)) }),
+                    in: 1...8
+                ) {
+                    Text("\(settings.cycles)").monospacedDigit()
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .labelsHidden()
+            }
+        }
+    }
+
+    private var soundSection: some View {
+        Group {
+            sectionLabel("Sound")
+            SettingRow(label: "Fade in") {
+                SegControl(
+                    selection: Binding(get: { settings.fadeIn }, set: { settings.fadeIn = $0 }),
+                    options: FadeIn.allCases,
+                    label: { $0.display },
+                    accent: design.accent
+                )
+            }
+            SettingRow(label: "Fade out on session end") {
+                GlassToggle(isOn: Binding(get: { settings.fadeOut }, set: { settings.fadeOut = $0 }), accent: design.accent)
+            }
+            SettingRow(label: "Auto-pause sound on break") {
+                GlassToggle(isOn: Binding(get: { settings.pauseOnBreak }, set: { settings.pauseOnBreak = $0 }), accent: design.accent)
+            }
+        }
+    }
+
+    private var notificationsSection: some View {
+        Group {
+            sectionLabel("Notifications")
+            SettingRow(label: "Session end chime") {
+                GlassToggle(isOn: Binding(get: { settings.chime }, set: { settings.chime = $0 }), accent: design.accent)
+            }
+            SettingRow(label: "Break reminders") {
+                GlassToggle(isOn: Binding(get: { settings.breakReminder }, set: { settings.breakReminder = $0 }), accent: design.accent)
+            }
+        }
+    }
+
+    private var appSection: some View {
+        Group {
+            sectionLabel("App")
+            SettingRow(label: "Launch at login") {
+                GlassToggle(isOn: Binding(get: { settings.launchAtLogin }, set: { settings.launchAtLogin = $0 }), accent: design.accent)
+            }
+            SettingRow(label: "Show timer in menubar") {
+                GlassToggle(isOn: Binding(get: { settings.menubarTimer }, set: { settings.menubarTimer = $0 }), accent: design.accent)
+            }
+            SettingRow(label: "Keyboard shortcut") {
+                Text("⌥⌘ N")
+                    .font(.system(size: 10, design: .monospaced))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .glassChip(cornerRadius: 5, design: design)
+            }
+        }
+    }
+
+    private var footer: some View {
+        Text("x-noise · v1.0 · Quit ⌘Q")
+            .font(.system(size: 9.5))
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+    }
+
+    private func sectionLabel(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.system(size: 10, weight: .medium))
             .kerning(1.2)
             .foregroundStyle(.secondary)
             .padding(.top, 10)
             .padding(.bottom, 4)
-        content()
     }
 }
 
@@ -152,16 +170,18 @@ struct SegControl<Option: Hashable>: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(options, id: \.self) { opt in
-                Button(label(opt)) { selection = opt }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(selection == opt ? Color.primary : .secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color.white.opacity(selection == opt ? 0.18 : 0))
-                    )
-                    .buttonStyle(.plain)
+                Button { selection = opt } label: {
+                    Text(label(opt))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(selection == opt ? Color.primary : .secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.white.opacity(selection == opt ? 0.18 : 0))
+                        )
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(3)
@@ -178,7 +198,7 @@ struct GlassToggle: View {
     let accent: Color
 
     var body: some View {
-        Button(action: { isOn.toggle() }) {
+        Button { isOn.toggle() } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 Capsule()
                     .fill(isOn ? AnyShapeStyle(accent) : AnyShapeStyle(Color.white.opacity(0.18)))

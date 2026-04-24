@@ -9,18 +9,16 @@ struct PopoverView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Wallpaper behind the whole popover
             Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
 
-            // The sliding pages container — 3 pages side by side, translated horizontally.
             GeometryReader { _ in
                 HStack(spacing: 0) {
-                    FocusPage(session: model.session, mixer: model.mixer)
+                    FocusPage()
                         .frame(width: size.width, height: size.height)
-                    SoundsPage(favorites: model.favorites, mixer: model.mixer)
+                    SoundsPage()
                         .frame(width: size.width, height: size.height)
-                    SettingsPage(settings: model.focusSettings)
+                    SettingsPage()
                         .frame(width: size.width, height: size.height)
                 }
                 .offset(x: -CGFloat(pageIndex) * size.width)
@@ -28,20 +26,7 @@ struct PopoverView: View {
             }
             .frame(width: size.width, height: size.height)
 
-            // Tweaks toggle (top-right floating button, blends with page header)
-            Button {
-                withAnimation(.smooth(duration: 0.24)) { showTweaks.toggle() }
-            } label: {
-                Image(systemName: "paintbrush.pointed")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 14)
-            .padding(.trailing, 50)  // leaves room for the page's own top-right button
+            tweakToggle
 
             if showTweaks {
                 TweaksPanel(isPresented: $showTweaks)
@@ -58,11 +43,31 @@ struct PopoverView: View {
                 .strokeBorder(Color.white.opacity(design.glassStroke + 0.1), lineWidth: 1)
         )
         .preferredColorScheme(design.theme.colorScheme)
+        .environmentObject(model.session)
+        .environmentObject(model.mixer)
+        .environmentObject(model.focusSettings)
+        .environmentObject(model.favorites)
         .task {
             if model.categories.isEmpty {
                 await model.handleLaunch()
             }
         }
+    }
+
+    private var tweakToggle: some View {
+        Button {
+            withAnimation(.smooth(duration: 0.24)) { showTweaks.toggle() }
+        } label: {
+            Image(systemName: "paintbrush.pointed")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(.ultraThinMaterial))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 14)
+        .padding(.trailing, 50)
     }
 
     private var pageIndex: Int {

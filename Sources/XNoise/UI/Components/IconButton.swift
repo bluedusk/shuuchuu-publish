@@ -5,7 +5,6 @@ struct IconButton: View {
     let systemName: String
     let size: CGFloat
     let action: () -> Void
-    @EnvironmentObject var design: DesignSettings
 
     init(systemName: String, size: CGFloat = 28, action: @escaping () -> Void) {
         self.systemName = systemName
@@ -14,20 +13,18 @@ struct IconButton: View {
     }
 
     var body: some View {
-        Button(action: action) {
+        Button { action() } label: {
             Image(systemName: systemName)
                 .font(.system(size: size * 0.45, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: size, height: size)
                 .background(
                     ZStack {
-                        Rectangle().fill(.thinMaterial)
-                        Color.white.opacity(0.10)
+                        Circle().fill(.thinMaterial)
+                        Circle().fill(Color.white.opacity(0.10))
                     }
                 )
-                .overlay(
-                    Circle().strokeBorder(Color.white.opacity(0.20), lineWidth: 1)
-                )
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.20), lineWidth: 1))
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)

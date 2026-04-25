@@ -44,6 +44,7 @@ struct Wallpaper: View {
         case .defaultMode: return (Color(oklchL: 0.38, C: 0.10, H: 280), Color(oklchL: 0.28, C: 0.08, H: 250))
         case .sunset:      return (Color(oklchL: 0.50, C: 0.12, H:  30), Color(oklchL: 0.35, C: 0.10, H: 350))
         case .forest:      return (Color(oklchL: 0.40, C: 0.10, H: 160), Color(oklchL: 0.30, C: 0.08, H: 140))
+        case .sky:         return (Color(oklchL: 0.42, C: 0.10, H: 235), Color(oklchL: 0.30, C: 0.08, H: 220))
         case .mono:        return (Color(oklchL: 0.25, C: 0.01, H: 260), Color(oklchL: 0.15, C: 0.01, H: 260))
         }
     }
@@ -73,6 +74,14 @@ struct Wallpaper: View {
                 Blob(color: Color(oklchL: 0.75, C: 0.14, H: 160), center: .init(x: 0.20, y: 0.30), radius: 260),
                 Blob(color: Color(oklchL: 0.78, C: 0.14, H: 120), center: .init(x: 0.80, y: 0.20), radius: 230),
                 Blob(color: Color(oklchL: 0.70, C: 0.14, H: 200), center: .init(x: 0.70, y: 0.80), radius: 260),
+            ]
+        case .sky:
+            // Spec §05: 4 blobs, blue family 200–240, all within L 0.78–0.82.
+            return [
+                Blob(color: Color(oklchL: 0.82, C: 0.14, H: 210), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.78, C: 0.15, H: 240), center: .init(x: 0.80, y: 0.20), radius: 230),
+                Blob(color: Color(oklchL: 0.80, C: 0.12, H: 200), center: .init(x: 0.70, y: 0.80), radius: 260),
+                Blob(color: Color(oklchL: 0.82, C: 0.10, H: 220), center: .init(x: 0.10, y: 0.90), radius: 200),
             ]
         case .mono:
             return [

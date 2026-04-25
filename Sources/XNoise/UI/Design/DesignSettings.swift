@@ -5,6 +5,7 @@ enum WallpaperMode: String, CaseIterable, Codable, Identifiable {
     case defaultMode = "default"
     case sunset
     case forest
+    case sky
     case mono
     var id: String { rawValue }
     var display: String {
@@ -12,7 +13,8 @@ enum WallpaperMode: String, CaseIterable, Codable, Identifiable {
         case .defaultMode: return "default"
         case .sunset: return "sunset"
         case .forest: return "forest"
-        case .mono: return "mono"
+        case .sky:    return "sky"
+        case .mono:   return "mono"
         }
     }
 }

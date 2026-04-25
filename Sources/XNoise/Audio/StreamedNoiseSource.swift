@@ -10,6 +10,8 @@ final class StreamedNoiseSource: NoiseSource, @unchecked Sendable {
     private var buffer: AVAudioPCMBuffer?
     private(set) var isReady: Bool = false
 
+    var audioFormat: AVAudioFormat? { buffer?.format }
+
     init(track: Track, cache: AudioCache) {
         self.id = track.id
         self.displayName = track.name

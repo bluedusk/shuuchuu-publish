@@ -13,6 +13,10 @@ final class BundledNoiseSource: NoiseSource, @unchecked Sendable {
     private var buffer: AVAudioPCMBuffer?
     private(set) var isReady: Bool = false
 
+    /// Source PCM format — used by MixingController to connect this player's
+    /// output to the mixer with the right format conversion.
+    var audioFormat: AVAudioFormat? { buffer?.format }
+
     enum BundledError: Error {
         case resourceMissing(String)
     }

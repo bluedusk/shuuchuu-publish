@@ -52,7 +52,12 @@ final class MixingController: ObservableObject {
         }
 
         engine.attach(source.node)
-        engine.connect(source.node, to: masterMixer, format: nil)
+        // Connect with the source's actual PCM format so mixed tracks with mismatched
+        // sample rates / channel counts (e.g. mono 48kHz white_noise alongside stereo
+        // 44.1kHz rain) get format-converted at the mixer instead of crashing the engine.
+        let connectFormat: AVAudioFormat? = (source as? BundledNoiseSource)?.audioFormat
+            ?? (source as? StreamedNoiseSource)?.audioFormat
+        engine.connect(source.node, to: masterMixer, format: connectFormat)
 
         if !engine.isRunning {
             do { try engine.start() } catch { return }

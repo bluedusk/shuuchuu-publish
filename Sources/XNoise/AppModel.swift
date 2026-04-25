@@ -64,14 +64,17 @@ final class AppModel: ObservableObject {
         } else {
             await mixer.addOrUpdate(track: track, volume: 0.5, cache: cache)
         }
+        persistMix()
     }
 
     func setTrackVolume(_ trackId: String, _ v: Float) {
         mixer.setVolume(trackId: trackId, volume: v)
+        persistMix()
     }
 
     func removeTrack(_ trackId: String) {
         mixer.remove(trackId: trackId)
+        persistMix()
     }
 
     func setMasterVolume(_ v: Float) {
@@ -85,6 +88,7 @@ final class AppModel: ObservableObject {
         } else {
             mixer.pause(trackId: trackId)
         }
+        persistMix()
     }
 
     func togglePlayAll() {
@@ -93,10 +97,57 @@ final class AppModel: ObservableObject {
         } else {
             mixer.pauseAll()
         }
+        persistMix()
     }
 
     func applyPreset(_ preset: Preset) async {
         await mixer.applyMix(preset.mix, resolving: { self.findTrack(id: $0) }, cache: cache)
+        persistMix()
+    }
+
+    // MARK: - Mix persistence
+
+    /// Snapshot of the active mix as it survives an app restart.
+    private struct SavedMix: Codable {
+        struct Track: Codable {
+            let id: String
+            let volume: Float
+            let paused: Bool
+        }
+        let tracks: [Track]
+        let masterPaused: Bool
+    }
+
+    private static let savedMixKey = "x-noise.savedMix"
+
+    private func persistMix() {
+        let snapshot = SavedMix(
+            tracks: mixer.live.values.map { .init(id: $0.id, volume: $0.volume, paused: $0.paused) },
+            masterPaused: mixer.masterPaused
+        )
+        if let data = try? JSONEncoder().encode(snapshot) {
+            UserDefaults.standard.set(data, forKey: Self.savedMixKey)
+        }
+    }
+
+    private func restoreMix() async {
+        guard
+            let data = UserDefaults.standard.data(forKey: Self.savedMixKey),
+            let snapshot = try? JSONDecoder().decode(SavedMix.self, from: data),
+            !snapshot.tracks.isEmpty
+        else { return }
+
+        // Re-add each saved track at its original volume.
+        for entry in snapshot.tracks {
+            guard let track = findTrack(id: entry.id) else { continue }
+            await mixer.addOrUpdate(track: track, volume: entry.volume, cache: cache)
+            if entry.paused {
+                mixer.pause(trackId: entry.id)
+            }
+        }
+        if snapshot.masterPaused {
+            mixer.pauseAll()
+        }
     }
 
     func goTo(_ page: AppPage) {
@@ -121,6 +172,7 @@ final class AppModel: ObservableObject {
 
     func handleLaunch() async {
         await loadCatalog()
+        await restoreMix()
     }
     func handleSleep() async {
         mixer.stopAll()

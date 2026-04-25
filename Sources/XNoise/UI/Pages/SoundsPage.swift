@@ -24,15 +24,16 @@ struct SoundsPage: View {
                 Text("SOUNDS")
                     .font(.system(size: 12, weight: .semibold))
                     .kerning(0.72)
-                    .foregroundStyle(.secondary)
+                    .xnText(.secondary)
                 Text("\(mixer.live.count) in current mix")
                     .font(.system(size: 12))
+                    .xnText(.primary)
             }
             Spacer()
             Button { model.goTo(.focus) } label: {
                 Text("Save mix")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .xnText(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
             }
@@ -107,7 +108,7 @@ struct SoundsPage: View {
             Text("PRESETS")
                 .font(.system(size: 12, weight: .semibold))
                 .kerning(0.72)
-                .foregroundStyle(.secondary)
+                .xnText(.secondary)
                 .padding(.horizontal, 14)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 5) {
@@ -117,7 +118,7 @@ struct SoundsPage: View {
                         } label: {
                             Text(preset.name)
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(.primary)
+                                .xnText(.primary)
                                 .padding(.horizontal, 11)
                                 .padding(.vertical, 5)
                                 .glassChip(cornerRadius: 14, design: design)

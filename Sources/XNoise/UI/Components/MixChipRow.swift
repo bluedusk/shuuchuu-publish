@@ -19,14 +19,14 @@ struct MixChipRow: View {
         HStack(spacing: 9) {
             Image(systemName: icon.symbol)
                 .font(.system(size: 14, weight: .light))
-                .foregroundStyle(dim ? Color.primary.opacity(0.5) : Color.primary)
                 .frame(width: 22, height: 22)
+                .xnText(dim ? .tertiary : .primary)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track.name)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
-                    .foregroundStyle(dim ? Color.primary.opacity(0.5) : Color.primary)
+                    .xnText(dim ? .tertiary : .primary)
                 Slider(
                     value: Binding(get: { Double(volume) }, set: { onVolumeChange(Float($0)) }),
                     in: 0...1

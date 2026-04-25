@@ -285,7 +285,7 @@ struct SettingsPage: View {
     private var footer: some View {
         Text("x-noise · v1.0 · Quit ⌘Q")
             .font(.system(size: 11, weight: .regular))
-            .foregroundStyle(.tertiary)
+            .xnText(.tertiary)
             .frame(maxWidth: .infinity)
             .padding(.top, 16)
             .padding(.bottom, 12)
@@ -296,7 +296,7 @@ struct SettingsPage: View {
         Text(title.uppercased())
             .font(.system(size: 12, weight: .semibold))
             .kerning(0.72)
-            .foregroundStyle(.secondary)
+            .xnText(.secondary)
             .padding(.top, 10)
             .padding(.bottom, 4)
     }

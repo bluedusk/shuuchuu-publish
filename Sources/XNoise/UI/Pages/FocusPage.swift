@@ -29,7 +29,7 @@ struct FocusPage: View {
                 Text("FOCUS")
                     .font(.system(size: 12, weight: .semibold))
                     .kerning(0.72)
-                    .foregroundStyle(.secondary)
+                    .xnText(.secondary)
                 SessionDots(total: session.totalSessions, current: session.currentSession)
                     .padding(.top, 8)
             }
@@ -152,7 +152,7 @@ struct FocusPage: View {
                     .font(.system(size: 11, weight: .semibold))
                     .kerning(0.66)
             }
-            .foregroundStyle(.secondary)
+            .xnText(.secondary)
         }
         .buttonStyle(.plain)
         .disabled(mixer.live.isEmpty)
@@ -164,7 +164,7 @@ struct FocusPage: View {
                 Text("+").font(.system(size: 13))
                 Text("Add sound").font(.system(size: 11, weight: .medium))
             }
-            .foregroundStyle(.secondary)
+            .xnText(.secondary)
         }
         .buttonStyle(.plain)
     }
@@ -196,7 +196,7 @@ struct FocusPage: View {
     private var emptyPlaceholder: some View {
         Text("No sounds playing — tap Add sound below")
             .font(.system(size: 11))
-            .foregroundStyle(.tertiary)
+            .xnText(.tertiary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 18)
             .overlay(

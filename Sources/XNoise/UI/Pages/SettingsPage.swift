@@ -5,10 +5,6 @@ struct SettingsPage: View {
     @EnvironmentObject var design: DesignSettings
     @EnvironmentObject var settings: FocusSettings
 
-    @State private var scrollOffset: CGFloat = 0
-    @State private var contentHeight: CGFloat = 0
-    @State private var viewportHeight: CGFloat = 0
-
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -25,45 +21,9 @@ struct SettingsPage: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 12)
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear
-                            .onAppear { contentHeight = proxy.size.height }
-                            .onChange(of: proxy.size.height) { _, h in contentHeight = h }
-                            .preference(
-                                key: ScrollOffsetKey.self,
-                                value: proxy.frame(in: .named("settingsScroll")).minY
-                            )
-                    }
-                )
             }
-            .scrollIndicators(.hidden)
-            .coordinateSpace(name: "settingsScroll")
-            .onPreferenceChange(ScrollOffsetKey.self) { offset in
-                scrollOffset = offset
-            }
-            .background(
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { viewportHeight = proxy.size.height }
-                        .onChange(of: proxy.size.height) { _, h in viewportHeight = h }
-                }
-            )
-            .overlay(alignment: .trailing) {
-                HueScrollIndicator(
-                    viewportHeight: viewportHeight,
-                    contentHeight: contentHeight,
-                    scrollOffset: scrollOffset,
-                    tint: design.accent
-                )
-                .padding(.vertical, 6)
-            }
+            .scrollIndicators(.never)
         }
-    }
-
-    private struct ScrollOffsetKey: PreferenceKey {
-        static let defaultValue: CGFloat = 0
-        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
     }
 
     private var header: some View {

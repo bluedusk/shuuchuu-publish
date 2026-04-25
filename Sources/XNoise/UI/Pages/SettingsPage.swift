@@ -178,11 +178,10 @@ struct SettingsPage: View {
                 title: "Accent hue",
                 trailing: "\(Int(design.accentHue))°"
             ) {
-                Slider(
-                    value: Binding(get: { design.accentHue }, set: { design.accentHue = $0 }),
-                    in: 0...360, step: 1
+                HueSlider(
+                    hue: Binding(get: { design.accentHue }, set: { design.accentHue = $0 }),
+                    theme: design.resolvedTheme
                 )
-                .tint(design.accent)
 
                 // Spec §03 — six named presets.
                 HStack(spacing: 6) {

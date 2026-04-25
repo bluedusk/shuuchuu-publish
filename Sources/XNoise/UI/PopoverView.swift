@@ -40,6 +40,8 @@ struct PopoverView: View {
             }
         }
         .frame(width: size.width, height: size.height)
+        .contentShape(Rectangle())   // claim hover/click for the entire popover so events don't leak to the window below
+        .onHover { _ in }            // forces SwiftUI to install a tracking area covering the full frame
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)

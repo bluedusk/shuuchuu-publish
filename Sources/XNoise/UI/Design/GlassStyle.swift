@@ -106,31 +106,24 @@ struct GlassChip: ViewModifier {
 
 extension View {
     func glassPanel(cornerRadius: CGFloat = 18, design: DesignSettings, sheen: Bool = true) -> some View {
-        // Spec §04 / §07: in light theme the white tint must lift to ~0.60 so glass stays
-        // visible against a bright wallpaper.
-        let resolved = design.resolvedTheme
-        let opacity = resolved == .light
-            ? max(design.glassOpacity, XNTokens.Glass.lightOpacity)
-            : design.glassOpacity
-        return modifier(GlassPanel(
+        // We keep white text in both themes (see XNTokens.text). That means light theme
+        // must NOT push the glass tint to 0.60 — a near-white surface would erase white
+        // text. Both themes use the user's tweakable opacity directly.
+        modifier(GlassPanel(
             cornerRadius: cornerRadius,
-            opacity: opacity,
+            opacity: design.glassOpacity,
             stroke: design.glassStroke,
-            theme: resolved,
+            theme: design.resolvedTheme,
             sheen: sheen
         ))
     }
 
     func glassChip(cornerRadius: CGFloat = 10, design: DesignSettings) -> some View {
-        let resolved = design.resolvedTheme
-        let opacity = resolved == .light
-            ? max(design.glassOpacity, XNTokens.Glass.lightOpacity)
-            : design.glassOpacity
-        return modifier(GlassChip(
+        modifier(GlassChip(
             cornerRadius: cornerRadius,
-            opacity: opacity,
+            opacity: design.glassOpacity,
             stroke: design.glassStroke,
-            theme: resolved
+            theme: design.resolvedTheme
         ))
     }
 }

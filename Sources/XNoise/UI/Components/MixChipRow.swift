@@ -27,12 +27,10 @@ struct MixChipRow: View {
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                     .xnText(dim ? .tertiary : .primary)
-                Slider(
+                ThumblessSlider(
                     value: Binding(get: { Double(volume) }, set: { onVolumeChange(Float($0)) }),
-                    in: 0...1
+                    tint: Color.white.opacity(0.55)
                 )
-                .controlSize(.mini)
-                .tint(Color.white.opacity(0.55))
             }
             .opacity(dim ? 0.6 : 1)
 

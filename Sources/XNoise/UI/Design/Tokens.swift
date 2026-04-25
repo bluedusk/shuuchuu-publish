@@ -37,10 +37,11 @@ enum XNTokens {
     // Three opacities only. View asks for primary / secondary / tertiary.
     enum TextStop { case primary, secondary, tertiary }
 
+    /// Spec §02 originally specified near-black ink in light mode — but on translucent
+    /// glass over a colorful wallpaper that produces hard, illegible black text. We keep
+    /// white text in both themes; light mode raises glass opacity (§04 / §07) instead.
     static func text(_ stop: TextStop, theme: AppTheme = .dark) -> Color {
-        let base: Color = (theme == .light)
-            ? Color(.sRGB, red: 20/255, green: 20/255, blue: 25/255, opacity: 1)
-            : .white
+        let base: Color = .white
         switch stop {
         case .primary:   return base.opacity(0.92)
         case .secondary: return base.opacity(0.62)

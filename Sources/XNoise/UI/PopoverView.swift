@@ -11,19 +11,27 @@ struct PopoverView: View {
             Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
 
-            GeometryReader { _ in
-                HStack(spacing: 0) {
-                    FocusPage()
-                        .frame(width: size.width, height: size.height)
-                    SoundsPage()
-                        .frame(width: size.width, height: size.height)
-                    SettingsPage()
-                        .frame(width: size.width, height: size.height)
-                }
-                .offset(x: -CGFloat(pageIndex) * size.width)
-                .animation(.smooth(duration: 0.32), value: model.page)
+            // Focus is always the base layer.
+            FocusPage()
+                .frame(width: size.width, height: size.height)
+
+            // Sounds & Settings push in from the right when active.
+            // Edge-slide transitions instead of a fixed HStack offset means we never
+            // animate the "middle" page through the viewport when navigating
+            // non-adjacent screens.
+            if model.page == .sounds {
+                SoundsPage()
+                    .frame(width: size.width, height: size.height)
+                    .transition(.move(edge: .trailing))
+                    .zIndex(1)
             }
-            .frame(width: size.width, height: size.height)
+
+            if model.page == .settings {
+                SettingsPage()
+                    .frame(width: size.width, height: size.height)
+                    .transition(.move(edge: .trailing))
+                    .zIndex(1)
+            }
         }
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -40,14 +48,6 @@ struct PopoverView: View {
             if model.categories.isEmpty {
                 await model.handleLaunch()
             }
-        }
-    }
-
-    private var pageIndex: Int {
-        switch model.page {
-        case .focus:    return 0
-        case .sounds:   return 1
-        case .settings: return 2
         }
     }
 }

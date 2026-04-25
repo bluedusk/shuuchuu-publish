@@ -6,120 +6,198 @@ struct FocusPage: View {
     @EnvironmentObject var session: FocusSession
     @EnvironmentObject var mixer: MixingController
 
+    @State private var settingsHover = false
+    @State private var ringHover = false
+
     var body: some View {
         VStack(spacing: 0) {
             header
-            ring.padding(.top, 18).padding(.bottom, 14)
-            transport.padding(.bottom, 14)
-            mixList.padding(.horizontal, 14)
+            ringBlock
+            Hairline().padding(.horizontal, 22).padding(.top, 4).padding(.bottom, 10)
+            mixSection
             Spacer(minLength: 0)
-            addSoundButton
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
-                .padding(.top, 10)
         }
+        .padding(.bottom, 6)
     }
 
+    // MARK: - Header (Focus / dots / ghost gear)
+
     private var header: some View {
-        HStack(alignment: .center, spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("FOCUS SESSION")
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("FOCUS")
                     .font(.system(size: 10, weight: .medium))
                     .kerning(1.2)
                     .foregroundStyle(.secondary)
-                Text("Session \(session.currentSession) of \(session.totalSessions)")
-                    .font(.system(size: 13, weight: .semibold))
+                SessionDots(total: session.totalSessions, current: session.currentSession)
+                    .padding(.top, 8)
             }
             Spacer()
-            IconButton(systemName: "gearshape") { model.goTo(.settings) }
+            Button(action: { model.goTo(.settings) }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(settingsHover ? Color.primary : Color.primary.opacity(0.45))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .onHover { settingsHover = $0 }
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
     }
 
-    private var ring: some View {
-        let remain = session.remainingSec
-        let mm = String(format: "%02d", remain / 60)
-        let ss = String(format: "%02d", remain % 60)
-        let caption: String = {
-            switch session.phase {
-            case .focus:      return session.isRunning ? "focusing" : "paused"
-            case .shortBreak: return "short break"
-            case .longBreak:  return "long break"
-            }
-        }()
-        return PomodoroRing(
-            progress: session.progress,
-            size: 172,
-            stroke: 4,
-            accent: design.accent,
-            label: "\(mm):\(ss)",
-            caption: caption
-        )
-    }
+    // MARK: - Hero ring (click to play/pause; reset & next reveal on hover)
 
-    private var transport: some View {
-        HStack(spacing: 14) {
-            IconButton(systemName: "arrow.counterclockwise", size: 32) { session.reset() }
-
-            Button { session.toggle() } label: {
-                Image(systemName: session.isRunning ? "pause.fill" : "play.fill")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .frame(width: 48, height: 48)
-                    .background(
-                        Circle().fill(
-                            LinearGradient(
-                                colors: [design.accent, design.accentDark],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        )
+    private var ringBlock: some View {
+        ZStack {
+            // Glow halo
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [design.accent.opacity(0.15), .clear],
+                        center: .center, startRadius: 10, endRadius: 100
                     )
-                    .shadow(color: design.accent.opacity(0.6), radius: 10, y: 4)
+                )
+                .frame(width: 210, height: 210)
+                .blur(radius: 14)
+
+            // Reset (left) — hover reveal
+            HStack {
+                ringSideButton(systemName: "arrow.counterclockwise") { session.reset() }
+                    .opacity(ringHover ? 1 : 0)
+                    .padding(.leading, 26)
+                Spacer()
+                ringSideButton(systemName: "forward.end.fill") { session.skip() }
+                    .opacity(ringHover ? 1 : 0)
+                    .padding(.trailing, 26)
+            }
+            .frame(width: 340)
+
+            // Ring as button
+            Button(action: ringTap) {
+                PomodoroRing(
+                    progress: session.progress,
+                    size: 172,
+                    stroke: 3,
+                    accent: design.accent,
+                    label: timeString,
+                    caption: ringHover ? hoverCaption : phaseCaption
+                )
             }
             .buttonStyle(.plain)
+        }
+        .frame(height: 220)
+        .padding(.top, 18)
+        .padding(.bottom, 4)
+        .onHover { ringHover = $0 }
+        .animation(.easeOut(duration: 0.18), value: ringHover)
+    }
 
-            IconButton(systemName: "forward.end.fill", size: 32) { session.skip() }
+    private func ringSideButton(systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(Color.primary.opacity(0.45))
+                .frame(width: 32, height: 32)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func ringTap() {
+        session.toggle()
+        // Mirror to audio: starting the timer resumes the master mix; pausing pauses it.
+        if session.isRunning { mixer.resumeAll() } else { mixer.pauseAll() }
+    }
+
+    private var timeString: String {
+        let r = session.remainingSec
+        return String(format: "%02d:%02d", r / 60, r % 60)
+    }
+
+    private var phaseCaption: String {
+        switch session.phase {
+        case .focus:      return session.isRunning ? "Focusing" : "Paused"
+        case .shortBreak: return "Short break"
+        case .longBreak:  return "Long break"
         }
     }
 
-    private var mixList: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            let activeCount = mixer.live.count
-            Text("NOW PLAYING · \(activeCount) \(activeCount == 1 ? "sound" : "sounds")")
-                .font(.system(size: 10, weight: .medium))
-                .kerning(1.2)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 2)
+    private var hoverCaption: String {
+        session.isRunning ? "Pause" : "Play"
+    }
 
-            ScrollView {
-                VStack(spacing: 6) {
-                    if activeCount == 0 {
-                        emptyPlaceholder
-                    } else {
-                        ForEach(Array(mixer.live.values), id: \.id) { live in
-                            if let track = model.findTrack(id: live.id) {
-                                MixChipRow(
-                                    track: track,
-                                    volume: live.volume,
-                                    onVolumeChange: { v in model.setTrackVolume(live.id, v) },
-                                    onRemove: { model.removeTrack(live.id) }
-                                )
-                            }
+    // MARK: - Mix section
+
+    private var mixSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                playAllButton
+                Spacer()
+                addSoundButton
+            }
+            .padding(.horizontal, 16)
+
+            mixList
+                .padding(.horizontal, 16)
+        }
+    }
+
+    private var playAllButton: some View {
+        Button(action: { model.togglePlayAll() }) {
+            HStack(spacing: 6) {
+                Image(systemName: mixer.masterPaused ? "play.fill" : "pause.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text(mixer.masterPaused ? "PLAY ALL" : "PAUSE ALL")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .kerning(1.4)
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .disabled(mixer.live.isEmpty)
+    }
+
+    private var addSoundButton: some View {
+        Button(action: { model.goTo(.sounds) }) {
+            HStack(spacing: 3) {
+                Text("+").font(.system(size: 13))
+                Text("Add sound").font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var mixList: some View {
+        ScrollView {
+            VStack(spacing: 5) {
+                if mixer.live.isEmpty {
+                    emptyPlaceholder
+                } else {
+                    ForEach(Array(mixer.live.values), id: \.id) { live in
+                        if let track = model.findTrack(id: live.id) {
+                            MixChipRow(
+                                track: track,
+                                volume: live.volume,
+                                paused: live.paused || mixer.masterPaused,
+                                onVolumeChange: { v in model.setTrackVolume(live.id, v) },
+                                onTogglePause: { model.togglePause(trackId: live.id) },
+                                onRemove: { model.removeTrack(live.id) }
+                            )
                         }
                     }
                 }
             }
-            .frame(maxHeight: 150)
         }
+        .frame(maxHeight: 180)
     }
 
     private var emptyPlaceholder: some View {
-        Text("No sounds selected")
+        Text("No sounds playing — tap Add sound below")
             .font(.system(size: 11))
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .padding(.vertical, 18)
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(
@@ -127,21 +205,5 @@ struct FocusPage: View {
                         style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                     )
             )
-    }
-
-    private var addSoundButton: some View {
-        Button { model.goTo(.sounds) } label: {
-            HStack(spacing: 7) {
-                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
-                Text(mixer.live.isEmpty ? "Choose sounds" : "Add sound")
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .foregroundStyle(.primary)
-            .glassChip(cornerRadius: 11, design: design)
-        }
-        .buttonStyle(.plain)
     }
 }

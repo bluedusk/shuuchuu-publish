@@ -36,8 +36,8 @@ final class DesignSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.accentHue   = defaults.object(forKey: K.accentHue)   as? Double ?? 134
-        let wp = (defaults.string(forKey: K.wallpaper)).flatMap(WallpaperMode.init(rawValue:)) ?? .mono
+        self.accentHue   = defaults.object(forKey: K.accentHue)   as? Double ?? 140
+        let wp = (defaults.string(forKey: K.wallpaper)).flatMap(WallpaperMode.init(rawValue:)) ?? .defaultMode
         self.wallpaper = wp
         let th = (defaults.string(forKey: K.theme)).flatMap(AppTheme.init(rawValue:)) ?? .dark
         self.theme = th

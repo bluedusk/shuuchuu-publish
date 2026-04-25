@@ -41,12 +41,12 @@ struct PomodoroRing: View {
 
             VStack(spacing: 4) {
                 Text(label)
-                    .font(.system(size: 36, weight: .thin, design: .default))
+                    .font(.system(size: 40, weight: .light, design: .default))
                     .monospacedDigit()
                     .kerning(-1)
                 Text(caption)
                     .font(.system(size: 10, weight: .medium))
-                    .kerning(1.5)
+                    .kerning(2)
                     .textCase(.uppercase)
                     .foregroundStyle(.secondary)
             }

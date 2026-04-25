@@ -79,6 +79,22 @@ final class AppModel: ObservableObject {
         prefs.volume = v
     }
 
+    func togglePause(trackId: String) {
+        if mixer.live[trackId]?.paused == true {
+            mixer.resume(trackId: trackId)
+        } else {
+            mixer.pause(trackId: trackId)
+        }
+    }
+
+    func togglePlayAll() {
+        if mixer.masterPaused {
+            mixer.resumeAll()
+        } else {
+            mixer.pauseAll()
+        }
+    }
+
     func applyPreset(_ preset: Preset) async {
         await mixer.applyMix(preset.mix, resolving: { self.findTrack(id: $0) }, cache: cache)
     }
@@ -115,7 +131,7 @@ final class AppModel: ObservableObject {
 
 /// Sound filter categories used by the Sounds page pills.
 enum CategoryFilter: String, CaseIterable, Equatable {
-    case all, favorites, weather, water, nature, ambient, noise, other
+    case all, favorites, weather, water, nature, ambient, noise
 
     var display: String {
         switch self {
@@ -126,11 +142,11 @@ enum CategoryFilter: String, CaseIterable, Equatable {
         case .nature: return "Nature"
         case .ambient: return "Ambient"
         case .noise: return "Noise"
-        case .other: return "Other"
         }
     }
 
-    /// Map a track id to the filter pill it belongs in.
+    /// Map a track id to the filter pill it belongs in. Tracks that don't fit any
+    /// pill (e.g. binaural_music, speech_blocker) are findable only via .all.
     static func category(for id: String, fallback: String) -> CategoryFilter {
         switch id {
         case "rain", "rain_on_surface", "loud_rain", "thunder", "wind":
@@ -146,7 +162,7 @@ enum CategoryFilter: String, CaseIterable, Equatable {
         case "white_noise", "pink_noise", "brown_noise", "green_noise", "fluorescent_hum":
             return .noise
         default:
-            return .other
+            return .all
         }
     }
 }

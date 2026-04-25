@@ -21,27 +21,20 @@ struct SoundsPage: View {
         HStack(spacing: 8) {
             IconButton(systemName: "chevron.left") { model.goTo(.focus) }
             VStack(alignment: .leading, spacing: 1) {
-                Text("Sounds").font(.system(size: 13, weight: .semibold))
-                Text("\(mixer.live.count) in current mix")
-                    .font(.system(size: 10))
+                Text("SOUNDS")
+                    .font(.system(size: 10, weight: .medium))
+                    .kerning(1.2)
                     .foregroundStyle(.secondary)
+                Text("\(mixer.live.count) in current mix")
+                    .font(.system(size: 12))
             }
             Spacer()
             Button { model.goTo(.focus) } label: {
-                Text("Done")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule().fill(
-                            LinearGradient(
-                                colors: [design.accent, design.accentDark],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        )
-                    )
-                    .shadow(color: design.accent.opacity(0.6), radius: 8)
+                Text("Save mix")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
             }
             .buttonStyle(.plain)
         }

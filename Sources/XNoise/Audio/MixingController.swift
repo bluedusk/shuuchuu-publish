@@ -12,13 +12,16 @@ final class MixingController: ObservableObject {
     struct LiveTrack: Equatable {
         let id: String
         var volume: Float
+        var paused: Bool = false
     }
 
-    /// Every currently-playing track, keyed by track id.
+    /// Every active track, keyed by track id. Paused tracks remain present but silenced.
     @Published private(set) var live: [String: LiveTrack] = [:]
     @Published var masterVolume: Float = Constants.defaultVolume {
         didSet { masterMixer.outputVolume = masterVolume }
     }
+    /// Master pause state — independent of per-track pause; affects the engine output.
+    @Published private(set) var masterPaused: Bool = false
 
     private let engine = AVAudioEngine()
     private let masterMixer = AVAudioMixerNode()
@@ -110,6 +113,50 @@ final class MixingController: ObservableObject {
         for id in Array(live.keys) {
             remove(trackId: id)
         }
+        masterPaused = false
+    }
+
+    /// Pause a single track without removing it. Volume is preserved.
+    func pause(trackId: String) {
+        guard var t = live[trackId], !t.paused else { return }
+        t.paused = true
+        live[trackId] = t
+        if let player = sources[trackId]?.node as? AVAudioPlayerNode {
+            player.pause()
+        }
+    }
+
+    /// Resume a paused track.
+    func resume(trackId: String) {
+        guard var t = live[trackId], t.paused else { return }
+        t.paused = false
+        live[trackId] = t
+        if let player = sources[trackId]?.node as? AVAudioPlayerNode {
+            player.play()
+        }
+    }
+
+    /// Master pause — stops engine output without changing per-track state.
+    func pauseAll() {
+        guard !masterPaused else { return }
+        masterPaused = true
+        if engine.isRunning {
+            engine.pause()
+        }
+    }
+
+    /// Resume master playback. Per-track paused tracks remain paused.
+    func resumeAll() {
+        guard masterPaused else { return }
+        masterPaused = false
+        if !live.isEmpty, !engine.isRunning {
+            try? engine.start()
+        }
+    }
+
+    /// True if any live track has audio actually playing right now.
+    var hasAudibleTrack: Bool {
+        !masterPaused && live.values.contains(where: { !$0.paused })
     }
 
     /// Set the active mix wholesale (e.g. when applying a preset).

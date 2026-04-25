@@ -1,60 +1,71 @@
 import SwiftUI
 
-/// A chip representing an active track in the "Now playing" list on the Focus page.
-/// Shows the track's icon, name, a mini volume slider, and a remove button.
+/// Active-track row in the "Now playing" list on the Focus page.
+/// Per-track play/pause + (hover-only) remove.
 struct MixChipRow: View {
     let track: Track
     let volume: Float
+    let paused: Bool
     let onVolumeChange: (Float) -> Void
+    let onTogglePause: () -> Void
     let onRemove: () -> Void
 
-    @EnvironmentObject var design: DesignSettings
+    @State private var isHovered = false
 
     private var icon: TrackIcon { TrackIconMap.icon(for: track.id) }
+    private var dim: Bool { paused }
 
     var body: some View {
         HStack(spacing: 9) {
-            iconBadge
+            Image(systemName: icon.symbol)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(dim ? Color.primary.opacity(0.5) : Color.primary)
+                .frame(width: 22, height: 22)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track.name)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 11.5, weight: .medium))
                     .lineLimit(1)
+                    .foregroundStyle(dim ? Color.primary.opacity(0.5) : Color.primary)
                 Slider(
-                    value: Binding(
-                        get: { Double(volume) },
-                        set: { onVolumeChange(Float($0)) }
-                    ),
+                    value: Binding(get: { Double(volume) }, set: { onVolumeChange(Float($0)) }),
                     in: 0...1
                 )
                 .controlSize(.mini)
-                .tint(design.accent)
+                .tint(Color.white.opacity(0.55))
             }
+            .opacity(dim ? 0.6 : 1)
 
+            // Per-track play/pause — visible always when paused, only on hover when playing
+            Button(action: onTogglePause) {
+                Image(systemName: paused ? "play.fill" : "pause.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+            .opacity(paused || isHovered ? 1 : 0)
+
+            // Remove × — only on hover
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .padding(4)
+                    .frame(width: 18, height: 18)
             }
             .buttonStyle(.plain)
+            .opacity(isHovered ? 1 : 0)
         }
         .padding(7)
-        .glassChip(design: design)
-    }
-
-    private var iconBadge: some View {
-        ZStack {
-            LinearGradient(
-                colors: [design.accent, design.accentDark],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-            Image(systemName: icon.symbol)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
-        }
-        .frame(width: 24, height: 24)
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .shadow(color: design.accent.opacity(0.6), radius: 4)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(isHovered ? 0.055 : 0.035))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+        )
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovered)
     }
 }

@@ -165,6 +165,8 @@ final class MixingController: ObservableObject {
     }
 
     /// Set the active mix wholesale (e.g. when applying a preset).
+    /// Resumes master playback and any per-track paused tracks that are part of the new mix —
+    /// stale pause state was making preset-applied tracks appear in the list but stay silent.
     func applyMix(_ mix: [String: Float], resolving: (String) -> Track?, cache: AudioCache) async {
         // Remove tracks no longer in the mix.
         for id in Array(live.keys) where (mix[id] ?? 0) < 0.02 {
@@ -174,7 +176,12 @@ final class MixingController: ObservableObject {
         for (id, vol) in mix where vol >= 0.02 {
             guard let track = resolving(id) else { continue }
             await addOrUpdate(track: track, volume: vol, cache: cache)
+            // Force-resume in case the track was previously paused — applying a preset
+            // implies "I want to hear this", regardless of prior state.
+            resume(trackId: id)
         }
+        // Lift master pause when a preset is applied.
+        if masterPaused { resumeAll() }
     }
 
     // MARK: - Private helpers

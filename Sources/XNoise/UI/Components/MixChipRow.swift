@@ -18,7 +18,7 @@ struct MixChipRow: View {
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: icon.symbol)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14, weight: .light))
                 .foregroundStyle(dim ? Color.primary.opacity(0.5) : Color.primary)
                 .frame(width: 22, height: 22)
 

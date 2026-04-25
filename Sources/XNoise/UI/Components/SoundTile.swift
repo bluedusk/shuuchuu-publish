@@ -45,8 +45,8 @@ struct SoundTile: View {
 
     private var iconGlyph: some View {
         Image(systemName: icon.symbol)
-            .font(.system(size: 22, weight: .semibold))
-            .foregroundStyle(isOn ? Color.white : .primary.opacity(0.7))
+            .font(.system(size: 22, weight: .light))
+            .foregroundStyle(isOn ? Color.white : .primary.opacity(0.75))
     }
 
     private var nameLabel: some View {

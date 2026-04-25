@@ -32,7 +32,10 @@ struct SoundTile: View {
             iconGlyph
             nameLabel
             Spacer(minLength: 0)
-            if isOn { volumeBar }
+            // Always reserve the volume-bar slot so the tile height stays stable
+            // when toggling on/off — only the visibility changes.
+            volumeBar
+                .opacity(isOn ? 1 : 0)
         }
         .padding(6)
         .frame(maxWidth: .infinity)

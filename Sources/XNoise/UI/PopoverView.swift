@@ -20,17 +20,23 @@ struct PopoverView: View {
             // animate the "middle" page through the viewport when navigating
             // non-adjacent screens.
             if model.page == .sounds {
-                SoundsPage()
-                    .frame(width: size.width, height: size.height)
-                    .transition(.move(edge: .trailing))
-                    .zIndex(1)
+                ZStack {
+                    Wallpaper(mode: design.wallpaper)
+                    SoundsPage()
+                }
+                .frame(width: size.width, height: size.height)
+                .transition(.move(edge: .trailing))
+                .zIndex(1)
             }
 
             if model.page == .settings {
-                SettingsPage()
-                    .frame(width: size.width, height: size.height)
-                    .transition(.move(edge: .trailing))
-                    .zIndex(1)
+                ZStack {
+                    Wallpaper(mode: design.wallpaper)
+                    SettingsPage()
+                }
+                .frame(width: size.width, height: size.height)
+                .transition(.move(edge: .trailing))
+                .zIndex(1)
             }
         }
         .frame(width: size.width, height: size.height)

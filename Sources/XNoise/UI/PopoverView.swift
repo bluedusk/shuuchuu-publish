@@ -40,14 +40,17 @@ struct PopoverView: View {
             }
         }
         .frame(width: size.width, height: size.height)
-        .contentShape(Rectangle())   // claim hover/click for the entire popover so events don't leak to the window below
-        .onHover { _ in }            // forces SwiftUI to install a tracking area covering the full frame
-        .focusEffectDisabled()       // suppress system blue focus rings on every button in the popover
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.white.opacity(design.glassStroke + 0.1), lineWidth: 1)
         )
+        // contentShape AFTER clipShape — otherwise the clipped rounded corners
+        // strip the hit-test region and events leak to the window underneath.
+        // This must be the *last* layout-affecting modifier before scene wiring.
+        .contentShape(Rectangle())
+        .onHover { _ in }            // forces a tracking area covering the full frame
+        .focusEffectDisabled()       // suppress system blue focus rings on every button in the popover
         .preferredColorScheme(design.theme.colorScheme)
         // .system → colorScheme is nil → SwiftUI follows NSApp.effectiveAppearance
         .environmentObject(model.session)

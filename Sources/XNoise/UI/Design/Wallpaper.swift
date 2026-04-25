@@ -1,78 +1,83 @@
 import SwiftUI
 
-/// Aurora gradient wallpaper that sits behind the popover.
-/// Matches the design bundle's CSS `.wallpaper.mode-*` variants via SwiftUI gradients.
+/// Aurora gradient wallpaper. Each variant follows the spec §05 formula:
+/// up to 4 radial blobs over 1 base linear gradient, all in OKLCH.
 struct Wallpaper: View {
     let mode: WallpaperMode
 
     var body: some View {
         ZStack {
             baseGradient
-            ForEach(stops(for: mode).indices, id: \.self) { i in
-                let stop = stops(for: mode)[i]
+            ForEach(blobs(for: mode).indices, id: \.self) { i in
+                let b = blobs(for: mode)[i]
                 RadialGradient(
-                    colors: [stop.color.opacity(0.9), .clear],
-                    center: stop.center,
+                    colors: [b.color, .clear],
+                    center: b.center,
                     startRadius: 0,
-                    endRadius: stop.radius
+                    endRadius: b.radius
                 )
-                .blendMode(.plusLighter)
+                .blendMode(.normal)
             }
         }
         .ignoresSafeArea()
     }
 
     private var baseGradient: LinearGradient {
+        let stops = baseStops(for: mode)
+        return LinearGradient(
+            colors: [stops.0, stops.1],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    // MARK: - Spec values
+
+    private struct Blob {
+        let color: Color
+        let center: UnitPoint
+        let radius: CGFloat
+    }
+
+    private func baseStops(for mode: WallpaperMode) -> (Color, Color) {
         switch mode {
-        case .defaultMode:
-            return LinearGradient(
-                colors: [Color(red: 0.18, green: 0.16, blue: 0.32),
-                         Color(red: 0.10, green: 0.11, blue: 0.22)],
-                startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .sunset:
-            return LinearGradient(
-                colors: [Color(red: 0.35, green: 0.18, blue: 0.20),
-                         Color(red: 0.22, green: 0.10, blue: 0.14)],
-                startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .forest:
-            return LinearGradient(
-                colors: [Color(red: 0.12, green: 0.22, blue: 0.18),
-                         Color(red: 0.08, green: 0.15, blue: 0.13)],
-                startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .mono:
-            return LinearGradient(
-                colors: [Color(white: 0.20), Color(white: 0.10)],
-                startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .defaultMode: return (Color(oklchL: 0.38, C: 0.10, H: 280), Color(oklchL: 0.28, C: 0.08, H: 250))
+        case .sunset:      return (Color(oklchL: 0.50, C: 0.12, H:  30), Color(oklchL: 0.35, C: 0.10, H: 350))
+        case .forest:      return (Color(oklchL: 0.40, C: 0.10, H: 160), Color(oklchL: 0.30, C: 0.08, H: 140))
+        case .mono:        return (Color(oklchL: 0.25, C: 0.01, H: 260), Color(oklchL: 0.15, C: 0.01, H: 260))
         }
     }
 
-    private struct Stop { let color: Color; let center: UnitPoint; let radius: CGFloat }
-
-    private func stops(for mode: WallpaperMode) -> [Stop] {
+    private func blobs(for mode: WallpaperMode) -> [Blob] {
+        // Slot template: positions are fixed; per-mode we vary the OKLCH values + count.
+        // Slot 1 (60% wide × 50% tall) at (20%, 30%)
+        // Slot 2 (50% × 40%) at (80%, 20%)
+        // Slot 3 (55% × 45%) at (70%, 80%)
+        // Slot 4 (45% × 35%) at (10%, 90%)
         switch mode {
         case .defaultMode:
             return [
-                Stop(color: Color(red: 0.92, green: 0.55, blue: 0.80), center: .init(x: 0.20, y: 0.30), radius: 260),
-                Stop(color: Color(red: 0.55, green: 0.80, blue: 0.98), center: .init(x: 0.80, y: 0.20), radius: 230),
-                Stop(color: Color(red: 0.72, green: 0.58, blue: 0.98), center: .init(x: 0.70, y: 0.80), radius: 260),
-                Stop(color: Color(red: 0.55, green: 0.95, blue: 0.85), center: .init(x: 0.10, y: 0.90), radius: 200),
+                Blob(color: Color(oklchL: 0.78, C: 0.16, H: 330), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.82, C: 0.14, H: 220), center: .init(x: 0.80, y: 0.20), radius: 230),
+                Blob(color: Color(oklchL: 0.78, C: 0.15, H: 280), center: .init(x: 0.70, y: 0.80), radius: 260),
+                Blob(color: Color(oklchL: 0.82, C: 0.14, H: 170), center: .init(x: 0.10, y: 0.90), radius: 200),
             ]
         case .sunset:
             return [
-                Stop(color: Color(red: 0.98, green: 0.60, blue: 0.28), center: .init(x: 0.20, y: 0.30), radius: 260),
-                Stop(color: Color(red: 0.95, green: 0.45, blue: 0.65), center: .init(x: 0.80, y: 0.20), radius: 230),
-                Stop(color: Color(red: 0.80, green: 0.25, blue: 0.30), center: .init(x: 0.70, y: 0.80), radius: 260),
+                Blob(color: Color(oklchL: 0.82, C: 0.16, H:  30), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.78, C: 0.15, H: 350), center: .init(x: 0.80, y: 0.20), radius: 230),
+                Blob(color: Color(oklchL: 0.72, C: 0.14, H:  20), center: .init(x: 0.70, y: 0.80), radius: 260),
             ]
         case .forest:
             return [
-                Stop(color: Color(red: 0.45, green: 0.85, blue: 0.55), center: .init(x: 0.20, y: 0.30), radius: 260),
-                Stop(color: Color(red: 0.55, green: 0.88, blue: 0.45), center: .init(x: 0.80, y: 0.20), radius: 230),
-                Stop(color: Color(red: 0.40, green: 0.75, blue: 0.70), center: .init(x: 0.70, y: 0.80), radius: 260),
+                Blob(color: Color(oklchL: 0.75, C: 0.14, H: 160), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.78, C: 0.14, H: 120), center: .init(x: 0.80, y: 0.20), radius: 230),
+                Blob(color: Color(oklchL: 0.70, C: 0.14, H: 200), center: .init(x: 0.70, y: 0.80), radius: 260),
             ]
         case .mono:
             return [
-                Stop(color: Color(white: 0.55), center: .init(x: 0.20, y: 0.30), radius: 260),
-                Stop(color: Color(white: 0.70), center: .init(x: 0.80, y: 0.20), radius: 230),
+                Blob(color: Color(oklchL: 0.60, C: 0.02, H: 260), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.70, C: 0.02, H: 260), center: .init(x: 0.80, y: 0.20), radius: 230),
             ]
         }
     }

@@ -25,9 +25,10 @@ struct FocusPage: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 0) {
+                // Spec §06 section: 12pt SF Pro Text semibold uppercase + 0.06em.
                 Text("FOCUS")
-                    .font(.system(size: 10, weight: .medium))
-                    .kerning(1.2)
+                    .font(.system(size: 12, weight: .semibold))
+                    .kerning(0.72)
                     .foregroundStyle(.secondary)
                 SessionDots(total: session.totalSessions, current: session.currentSession)
                     .padding(.top, 8)
@@ -146,10 +147,10 @@ struct FocusPage: View {
         Button(action: { model.togglePlayAll() }) {
             HStack(spacing: 6) {
                 Image(systemName: mixer.masterPaused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .semibold))
                 Text(mixer.masterPaused ? "PLAY ALL" : "PAUSE ALL")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .kerning(1.4)
+                    .font(.system(size: 11, weight: .semibold))
+                    .kerning(0.66)
             }
             .foregroundStyle(.secondary)
         }

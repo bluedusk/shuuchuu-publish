@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 enum WallpaperMode: String, CaseIterable, Codable, Identifiable {
     case defaultMode = "default"
@@ -17,13 +18,28 @@ enum WallpaperMode: String, CaseIterable, Codable, Identifiable {
 }
 
 enum AppTheme: String, CaseIterable, Codable, Identifiable {
-    case dark, light
+    case system, dark, light
     var id: String { rawValue }
-    var colorScheme: ColorScheme { self == .dark ? .dark : .light }
+
+    /// `.preferredColorScheme` value. `.system` returns nil so SwiftUI uses NSApp's appearance.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .dark:   return .dark
+        case .light:  return .light
+        }
+    }
+
+    /// Resolves `.system` to the OS's current dark/light. Used internally for token lookups
+    /// that need a concrete (non-system) value.
+    var resolved: AppTheme {
+        if self != .system { return self }
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark ? .dark : .light
+    }
 }
 
 /// All user-customizable look-and-feel state. Persisted to UserDefaults.
-/// Mirrors the tweaks panel from the design bundle.
 final class DesignSettings: ObservableObject {
     @Published var accentHue: Double { didSet { defaults.set(accentHue, forKey: K.accentHue) } }
     @Published var wallpaper: WallpaperMode { didSet { defaults.set(wallpaper.rawValue, forKey: K.wallpaper) } }
@@ -36,27 +52,26 @@ final class DesignSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.accentHue   = defaults.object(forKey: K.accentHue)   as? Double ?? 140
+        self.accentHue   = defaults.object(forKey: K.accentHue)   as? Double ?? 220
         let wp = (defaults.string(forKey: K.wallpaper)).flatMap(WallpaperMode.init(rawValue:)) ?? .defaultMode
         self.wallpaper = wp
-        let th = (defaults.string(forKey: K.theme)).flatMap(AppTheme.init(rawValue:)) ?? .dark
+        let th = (defaults.string(forKey: K.theme)).flatMap(AppTheme.init(rawValue:)) ?? .system
         self.theme = th
-        self.glassBlur    = defaults.object(forKey: K.glassBlur)    as? Double ?? 34
-        self.glassOpacity = defaults.object(forKey: K.glassOpacity) as? Double ?? 0.13
-        self.glassStroke  = defaults.object(forKey: K.glassStroke)  as? Double ?? 0.16
+        self.glassBlur    = defaults.object(forKey: K.glassBlur)    as? Double ?? XNTokens.Glass.defaultBlur
+        self.glassOpacity = defaults.object(forKey: K.glassOpacity) as? Double ?? XNTokens.Glass.defaultOpacity
+        self.glassStroke  = defaults.object(forKey: K.glassStroke)  as? Double ?? XNTokens.Glass.defaultStroke
     }
 
-    /// Accent color derived from hue — oklch(0.72 0.14 hue) approximated in HSB.
-    var accent: Color {
-        // HSB approximation of oklch(0.72 0.14 hue). Acceptable drift for a menubar app.
-        Color(hue: accentHue / 360.0, saturation: 0.55, brightness: 0.92)
-    }
+    // MARK: - Resolved theme + derived colors
 
-    /// A darker sibling used for gradient tiles.
-    var accentDark: Color {
-        Color(hue: ((accentHue + 40).truncatingRemainder(dividingBy: 360)) / 360.0,
-              saturation: 0.70, brightness: 0.60)
-    }
+    /// Concrete dark/light, after resolving .system. Use this for color lookups.
+    var resolvedTheme: AppTheme { theme.resolved }
+
+    var accent: Color       { XNTokens.accent(hue: accentHue, theme: resolvedTheme) }
+    var accentStrong: Color { XNTokens.accentStrong(hue: accentHue) }
+    var accentSoft: Color   { XNTokens.accentSoft(hue: accentHue) }
+    var accentGlow: Color   { XNTokens.accentGlow(hue: accentHue) }
+    var accentDark: Color   { accentStrong }   // legacy alias
 
     private enum K {
         static let accentHue    = "x-noise.ui.accentHue"

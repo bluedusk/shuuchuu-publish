@@ -48,6 +48,7 @@ struct PopoverView: View {
                 .strokeBorder(Color.white.opacity(design.glassStroke + 0.1), lineWidth: 1)
         )
         .preferredColorScheme(design.theme.colorScheme)
+        // .system → colorScheme is nil → SwiftUI follows NSApp.effectiveAppearance
         .environmentObject(model.session)
         .environmentObject(model.mixer)
         .environmentObject(model.focusSettings)

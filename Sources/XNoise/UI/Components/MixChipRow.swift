@@ -24,7 +24,7 @@ struct MixChipRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track.name)
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                     .foregroundStyle(dim ? Color.primary.opacity(0.5) : Color.primary)
                 Slider(

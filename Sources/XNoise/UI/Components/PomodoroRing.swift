@@ -40,12 +40,15 @@ struct PomodoroRing: View {
                 .shadow(color: accent.opacity(0.7), radius: 4)
 
             VStack(spacing: 4) {
+                // Spec §06 "timer · display": 56pt SF Pro Display ultraLight, tnum.
+                // Bumped to fit the 172pt ring while staying on-scale.
                 Text(label)
-                    .font(.system(size: 40, weight: .light, design: .default))
+                    .font(.system(size: 56, weight: .ultraLight, design: .default))
                     .monospacedDigit()
-                    .kerning(-1)
+                    .kerning(-1.4)
+                // Spec §06 "caption · meta": 11pt regular, dim.
                 Text(caption)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .regular))
                     .kerning(2)
                     .textCase(.uppercase)
                     .foregroundStyle(.secondary)

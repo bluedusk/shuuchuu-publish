@@ -22,8 +22,8 @@ struct SoundsPage: View {
             IconButton(systemName: "chevron.left") { model.goTo(.focus) }
             VStack(alignment: .leading, spacing: 1) {
                 Text("SOUNDS")
-                    .font(.system(size: 10, weight: .medium))
-                    .kerning(1.2)
+                    .font(.system(size: 12, weight: .semibold))
+                    .kerning(0.72)
                     .foregroundStyle(.secondary)
                 Text("\(mixer.live.count) in current mix")
                     .font(.system(size: 12))
@@ -60,7 +60,7 @@ struct SoundsPage: View {
         let isOn = model.categoryFilter == f
         return Button { model.categoryFilter = f } label: {
             Text(f.display)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(isOn ? Color.primary : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
@@ -105,8 +105,8 @@ struct SoundsPage: View {
     private var presetsStrip: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("PRESETS")
-                .font(.system(size: 9.5, weight: .medium))
-                .kerning(1.2)
+                .font(.system(size: 12, weight: .semibold))
+                .kerning(0.72)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -116,7 +116,7 @@ struct SoundsPage: View {
                             Task { await model.applyPreset(preset) }
                         } label: {
                             Text(preset.name)
-                                .font(.system(size: 10.5, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.primary)
                                 .padding(.horizontal, 11)
                                 .padding(.vertical, 5)

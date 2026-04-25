@@ -28,7 +28,8 @@ struct SettingsPage: View {
     private var header: some View {
         HStack(spacing: 8) {
             IconButton(systemName: "chevron.left") { model.goTo(.focus) }
-            Text("Settings").font(.system(size: 13, weight: .semibold))
+            // Spec §06 title: 22pt SF Pro Display medium.
+            Text("Settings").font(.system(size: 22, weight: .medium)).kerning(-0.33)
             Spacer()
         }
         .padding(.horizontal, 14)
@@ -119,7 +120,8 @@ struct SettingsPage: View {
             }
             SettingRow(label: "Keyboard shortcut") {
                 Text("⌥⌘ N")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .monospacedDigit()
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
                     .glassChip(cornerRadius: 5, design: design)
@@ -133,13 +135,39 @@ struct SettingsPage: View {
 
             stackedRow(
                 title: "Accent hue",
-                trailing: String(Int(design.accentHue))
+                trailing: "\(Int(design.accentHue))°"
             ) {
                 Slider(
                     value: Binding(get: { design.accentHue }, set: { design.accentHue = $0 }),
                     in: 0...360, step: 1
                 )
                 .tint(design.accent)
+
+                // Spec §03 — six named presets.
+                HStack(spacing: 6) {
+                    ForEach(XNTokens.accentPresets, id: \.name) { preset in
+                        Button { design.accentHue = preset.hue } label: {
+                            VStack(spacing: 4) {
+                                Circle()
+                                    .fill(XNTokens.accent(hue: preset.hue, theme: design.resolvedTheme))
+                                    .frame(width: 18, height: 18)
+                                    .overlay(
+                                        Circle().strokeBorder(
+                                            Color.white.opacity(
+                                                Int(design.accentHue) == Int(preset.hue) ? 0.85 : 0.15
+                                            ),
+                                            lineWidth: 1.5
+                                        )
+                                    )
+                                Text(preset.name)
+                                    .font(.system(size: 11, weight: .regular))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 4)
             }
 
             stackedRow(title: "Wallpaper") {
@@ -152,7 +180,7 @@ struct SettingsPage: View {
 
             stackedRow(title: "Theme") {
                 radioRow(
-                    options: AppTheme.allCases,
+                    options: AppTheme.allCases,                       // system, dark, light
                     label: { $0.rawValue.capitalized },
                     selection: Binding(get: { design.theme }, set: { design.theme = $0 })
                 )
@@ -207,11 +235,11 @@ struct SettingsPage: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(title).font(.system(size: 11.5))
+                Text(title).font(.system(size: 13, weight: .regular))   // body
                 Spacer()
                 if let trailing {
                     Text(trailing)
-                        .font(.system(size: 11))
+                        .font(.system(size: 11, weight: .regular, design: .monospaced))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
@@ -256,7 +284,7 @@ struct SettingsPage: View {
 
     private var footer: some View {
         Text("x-noise · v1.0 · Quit ⌘Q")
-            .font(.system(size: 9.5))
+            .font(.system(size: 11, weight: .regular))
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity)
             .padding(.top, 16)
@@ -264,9 +292,10 @@ struct SettingsPage: View {
     }
 
     private func sectionLabel(_ title: String) -> some View {
+        // Spec §06 section: 12pt SF Pro Text semibold uppercase + 0.06em.
         Text(title.uppercased())
-            .font(.system(size: 10, weight: .medium))
-            .kerning(1.2)
+            .font(.system(size: 12, weight: .semibold))
+            .kerning(0.72)
             .foregroundStyle(.secondary)
             .padding(.top, 10)
             .padding(.bottom, 4)
@@ -281,7 +310,7 @@ struct SettingRow<Value: View>: View {
 
     var body: some View {
         HStack {
-            Text(label).font(.system(size: 11.5))
+            Text(label).font(.system(size: 13, weight: .regular))
             Spacer()
             value()
         }

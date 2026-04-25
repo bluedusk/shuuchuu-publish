@@ -51,7 +51,7 @@ struct SoundTile: View {
 
     private var nameLabel: some View {
         Text(track.name)
-            .font(.system(size: 9.5, weight: .medium))
+            .font(.system(size: 11, weight: .regular))
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .foregroundStyle(isOn ? Color.white : .primary.opacity(0.7))

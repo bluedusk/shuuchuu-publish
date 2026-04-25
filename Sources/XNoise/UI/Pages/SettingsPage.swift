@@ -324,7 +324,7 @@ struct SettingsPage: View {
     }
 
     private var footer: some View {
-        Text("x-noise · v1.0 · Quit ⌘Q")
+        Text("ShuuChuu 集中 · v1.0 · Quit ⌘Q")
             .font(.system(size: 11, weight: .regular))
             .xnText(.tertiary)
             .frame(maxWidth: .infinity)

@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>app.x-noise</string>
+    <string>app.shuuchuu</string>
     <key>CFBundleName</key>
-    <string>x-noise</string>
+    <string>ShuuChuu</string>
     <key>CFBundleDisplayName</key>
-    <string>x-noise</string>
+    <string>ShuuChuu</string>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleVersion</key>

@@ -1,24 +1,29 @@
 import SwiftUI
 
+/// Menubar label — shows 集中 (the logo) at all times.
+/// While playing, an animated EQ bar + timer / mix name appears beside it.
 struct MenubarLabel: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 5) {
+            // Logo — always visible
+            Text("集中")
+                .font(.system(size: 13, weight: .medium))
+
             if model.mixer.isPlaying {
                 EqBars(color: design.accent)
+
                 if model.focusSettings.menubarTimer && model.session.isRunning {
                     Text(timerString)
                         .font(.system(size: 11, weight: .medium))
                         .monospacedDigit()
-                } else {
-                    Text(mixLabel)
+                } else if let label = mixLabel {
+                    Text(label)
                         .font(.system(size: 11, weight: .medium))
                         .lineLimit(1)
                 }
-            } else {
-                Image(systemName: "waveform")
             }
         }
     }
@@ -28,9 +33,10 @@ struct MenubarLabel: View {
         return String(format: "%d:%02d", r / 60, r % 60)
     }
 
-    private var mixLabel: String {
+    /// Compact label for the current mix; nil when nothing meaningful to show.
+    private var mixLabel: String? {
         let n = model.mixer.live.count
-        if n == 0 { return "x-noise" }
+        if n == 0 { return nil }
         if n == 1, let id = model.mixer.live.keys.first, let t = model.findTrack(id: id) {
             return t.name
         }
@@ -38,7 +44,7 @@ struct MenubarLabel: View {
     }
 }
 
-/// Four animated bars imitating an EQ meter. Matches design.
+/// Four animated bars imitating an EQ meter.
 struct EqBars: View {
     let color: Color
     @State private var anim = false

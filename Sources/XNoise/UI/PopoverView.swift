@@ -3,12 +3,11 @@ import SwiftUI
 struct PopoverView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
-    @State private var showTweaks: Bool = false
 
     private let size = CGSize(width: 340, height: 540)
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack {
             Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
 
@@ -25,16 +24,6 @@ struct PopoverView: View {
                 .animation(.smooth(duration: 0.32), value: model.page)
             }
             .frame(width: size.width, height: size.height)
-
-            tweakToggle
-
-            if showTweaks {
-                TweaksPanel(isPresented: $showTweaks)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                    .padding(.top, 40)
-                    .padding(.trailing, 10)
-                    .zIndex(10)
-            }
         }
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -52,22 +41,6 @@ struct PopoverView: View {
                 await model.handleLaunch()
             }
         }
-    }
-
-    private var tweakToggle: some View {
-        Button {
-            withAnimation(.smooth(duration: 0.24)) { showTweaks.toggle() }
-        } label: {
-            Image(systemName: "paintbrush.pointed")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 24, height: 24)
-                .background(Circle().fill(.ultraThinMaterial))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .padding(.top, 14)
-        .padding(.trailing, 50)
     }
 
     private var pageIndex: Int {

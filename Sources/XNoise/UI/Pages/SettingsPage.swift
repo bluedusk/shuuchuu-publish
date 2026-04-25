@@ -14,6 +14,8 @@ struct SettingsPage: View {
                     soundSection
                     notificationsSection
                     appSection
+                    appearanceSection
+                    glassSection
                     footer
                 }
                 .padding(.horizontal, 16)
@@ -123,6 +125,133 @@ struct SettingsPage: View {
                     .glassChip(cornerRadius: 5, design: design)
             }
         }
+    }
+
+    private var appearanceSection: some View {
+        Group {
+            sectionLabel("Appearance")
+
+            stackedRow(
+                title: "Accent hue",
+                trailing: String(Int(design.accentHue))
+            ) {
+                Slider(
+                    value: Binding(get: { design.accentHue }, set: { design.accentHue = $0 }),
+                    in: 0...360, step: 1
+                )
+                .tint(design.accent)
+            }
+
+            stackedRow(title: "Wallpaper") {
+                radioRow(
+                    options: WallpaperMode.allCases,
+                    label: { $0.display.capitalized },
+                    selection: Binding(get: { design.wallpaper }, set: { design.wallpaper = $0 })
+                )
+            }
+
+            stackedRow(title: "Theme") {
+                radioRow(
+                    options: AppTheme.allCases,
+                    label: { $0.rawValue.capitalized },
+                    selection: Binding(get: { design.theme }, set: { design.theme = $0 })
+                )
+            }
+        }
+    }
+
+    private var glassSection: some View {
+        Group {
+            sectionLabel("Glass")
+
+            stackedRow(
+                title: "Blur",
+                trailing: "\(Int(design.glassBlur))px"
+            ) {
+                Slider(
+                    value: Binding(get: { design.glassBlur }, set: { design.glassBlur = $0 }),
+                    in: 4...60, step: 1
+                )
+                .tint(design.accent)
+            }
+
+            stackedRow(
+                title: "Opacity",
+                trailing: String(format: "%.2f", design.glassOpacity)
+            ) {
+                Slider(
+                    value: Binding(get: { design.glassOpacity }, set: { design.glassOpacity = $0 }),
+                    in: 0.04...0.5, step: 0.01
+                )
+                .tint(design.accent)
+            }
+
+            stackedRow(
+                title: "Stroke",
+                trailing: String(format: "%.2f", design.glassStroke)
+            ) {
+                Slider(
+                    value: Binding(get: { design.glassStroke }, set: { design.glassStroke = $0 }),
+                    in: 0...0.6, step: 0.01
+                )
+                .tint(design.accent)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func stackedRow<Body: View>(
+        title: String,
+        trailing: String? = nil,
+        @ViewBuilder content: () -> Body
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title).font(.system(size: 11.5))
+                Spacer()
+                if let trailing {
+                    Text(trailing)
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            }
+            content()
+        }
+        .padding(.vertical, 8)
+        .overlay(Divider().opacity(0.15), alignment: .bottom)
+    }
+
+    @ViewBuilder
+    private func radioRow<Opt: Hashable>(
+        options: [Opt],
+        label: @escaping (Opt) -> String,
+        selection: Binding<Opt>
+    ) -> some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.self) { opt in
+                let isOn = selection.wrappedValue == opt
+                Button { selection.wrappedValue = opt } label: {
+                    Text(label(opt))
+                        .font(.system(size: 11, weight: isOn ? .semibold : .regular))
+                        .foregroundStyle(isOn ? Color.primary : .secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Color.white.opacity(isOn ? 0.18 : 0))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.black.opacity(0.12))
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        )
     }
 
     private var footer: some View {

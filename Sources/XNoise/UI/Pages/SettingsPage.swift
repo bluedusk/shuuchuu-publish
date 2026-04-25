@@ -288,7 +288,6 @@ struct SettingsPage: View {
             content()
         }
         .padding(.vertical, 8)
-        .overlay(Divider().opacity(0.15), alignment: .bottom)
     }
 
     @ViewBuilder
@@ -356,7 +355,6 @@ struct SettingRow<Value: View>: View {
             value()
         }
         .padding(.vertical, 10)
-        .overlay(Divider().opacity(0.15), alignment: .bottom)
     }
 }
 

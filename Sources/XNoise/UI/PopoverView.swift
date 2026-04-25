@@ -8,17 +8,8 @@ struct PopoverView: View {
 
     var body: some View {
         ZStack {
-            // Hit-test floor — Color is one of the few SwiftUI views that always claims
-            // hit testing across its entire frame. Without this, the Wallpaper gradients
-            // (RadialGradient / LinearGradient) leave large areas without hit regions and
-            // the OS routes cursor events to whatever NSWindow is behind the menubar.
-            Color.black
-                .opacity(0.001)
-                .frame(width: size.width, height: size.height)
-
             Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
-                .allowsHitTesting(false)   // wallpaper is decorative; events go to the floor above
 
             // Focus is always the base layer.
             FocusPage()
@@ -30,9 +21,7 @@ struct PopoverView: View {
             // non-adjacent screens.
             if model.page == .sounds {
                 ZStack {
-                    Color.black.opacity(0.001)        // hit-test floor
                     Wallpaper(mode: design.wallpaper)
-                        .allowsHitTesting(false)
                     SoundsPage()
                 }
                 .frame(width: size.width, height: size.height)
@@ -42,9 +31,7 @@ struct PopoverView: View {
 
             if model.page == .settings {
                 ZStack {
-                    Color.black.opacity(0.001)        // hit-test floor
                     Wallpaper(mode: design.wallpaper)
-                        .allowsHitTesting(false)
                     SettingsPage()
                 }
                 .frame(width: size.width, height: size.height)

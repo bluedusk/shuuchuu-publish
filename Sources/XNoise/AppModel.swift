@@ -6,6 +6,18 @@ enum AppPage: String, CaseIterable {
     case focus, sounds, settings
 }
 
+/// Which tab of the Sounds page is active.
+enum SoundsTab: String, Equatable { case sounds, mixes }
+
+/// State machine for the inline save-mix flow.
+enum SaveMode: Equatable {
+    case inactive
+    case naming(text: String)
+    case confirmingOverwrite(text: String, existing: SavedMix)
+
+    var isActive: Bool { self != .inactive }
+}
+
 /// Thin orchestrator. Owns the dependency graph and routes user intents to `MixState`
 /// (which `MixingController` reconciles into audio). All mix mutations go through
 /// `MixState` — `AppModel` doesn't touch the audio engine directly.
@@ -24,9 +36,12 @@ final class AppModel: ObservableObject {
     let design: DesignSettings
     let favorites: Favorites
     let prefs: Preferences
+    let savedMixes: SavedMixes
 
     @Published var page: AppPage = .focus
     @Published var categoryFilter: CategoryFilter = .all
+    @Published var soundsTab: SoundsTab = .sounds
+    @Published var saveMode: SaveMode = .inactive
 
     init(
         catalog: Catalog,
@@ -37,7 +52,8 @@ final class AppModel: ObservableObject {
         session: FocusSession,
         design: DesignSettings,
         favorites: Favorites,
-        prefs: Preferences
+        prefs: Preferences,
+        savedMixes: SavedMixes
     ) {
         self.catalog = catalog
         self.state = state
@@ -48,6 +64,7 @@ final class AppModel: ObservableObject {
         self.design = design
         self.favorites = favorites
         self.prefs = prefs
+        self.savedMixes = savedMixes
         self.mixer.masterVolume = prefs.volume
     }
 
@@ -111,6 +128,75 @@ final class AppModel: ObservableObject {
             .map { MixTrack(id: $0.key, volume: $0.value, paused: false) }
         state.replace(with: newTracks)
         mixer.reconcileNow()
+    }
+
+    // MARK: - Save mix flow
+
+    func beginSaveMix() {
+        guard !state.isEmpty else { return }
+        saveMode = .naming(text: "")
+    }
+
+    func updateSaveName(_ text: String) {
+        switch saveMode {
+        case .naming:
+            saveMode = .naming(text: text)
+        case .confirmingOverwrite:
+            // Editing the name from the conflict screen returns to plain naming mode.
+            saveMode = .naming(text: text)
+        case .inactive:
+            return
+        }
+    }
+
+    func commitSaveMix() {
+        guard case .naming(let raw) = saveMode else { return }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let result = savedMixes.save(name: trimmed, tracks: state.tracks)
+        switch result {
+        case .saved:
+            saveMode = .inactive
+        case .duplicate(let existing):
+            saveMode = .confirmingOverwrite(text: trimmed, existing: existing)
+        }
+    }
+
+    func overwriteExisting() {
+        guard case .confirmingOverwrite(_, let existing) = saveMode else { return }
+        savedMixes.overwrite(id: existing.id, tracks: state.tracks)
+        saveMode = .inactive
+    }
+
+    func saveAsNewWithSuffix() {
+        guard case .confirmingOverwrite(let text, _) = saveMode else { return }
+        _ = savedMixes.saveWithUniqueSuffix(baseName: text, tracks: state.tracks)
+        saveMode = .inactive
+    }
+
+    func cancelSaveMix() {
+        saveMode = .inactive
+    }
+
+    func deleteMix(id: UUID) {
+        savedMixes.delete(id: id)
+    }
+
+    // MARK: - Currently-loaded helper
+
+    /// Returns the id (UUID for SavedMix or String for Preset) of the mix whose track-id set
+    /// matches the current MixState. Volume differences and ordering are ignored. Nil if no
+    /// match (or the active mix is empty).
+    var currentlyLoadedMixId: AnyHashable? {
+        guard !state.tracks.isEmpty else { return nil }
+        let active = Set(state.tracks.map(\.id))
+        if let m = savedMixes.mixes.first(where: { Set($0.tracks.map(\.id)) == active }) {
+            return AnyHashable(m.id)
+        }
+        if let p = Presets.all.first(where: { Set($0.mix.keys) == active }) {
+            return AnyHashable(p.id)
+        }
+        return nil
     }
 
     // MARK: - Master volume

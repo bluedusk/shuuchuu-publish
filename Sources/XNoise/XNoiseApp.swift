@@ -51,6 +51,7 @@ extension AppModel {
         let focusSettings = FocusSettings()
         let session = FocusSession(settings: focusSettings)
         let favorites = Favorites()
+        let savedMixes = SavedMixes()
         // resolveTrack is captured weakly via a closure so MixingController doesn't
         // pin AppModel — but the closure must be set after AppModel is built. So we
         // build the model first with a temporary controller, then thread the resolver.
@@ -68,7 +69,8 @@ extension AppModel {
             session: session,
             design: design,
             favorites: favorites,
-            prefs: prefs
+            prefs: prefs,
+            savedMixes: savedMixes
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }
         return model

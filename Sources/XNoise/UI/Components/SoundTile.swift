@@ -19,23 +19,30 @@ struct SoundTile: View {
 
     @EnvironmentObject var design: DesignSettings
     @State private var dragActive = false
+    @State private var tileWidth: CGFloat = 0
 
     private var icon: TrackIcon { TrackIconMap.icon(for: track.id) }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            tileButton
-            favoriteStar
-        }
-    }
-
-    private var tileButton: some View {
-        GeometryReader { geo in
-            tileContent
-                .gesture(volumeDragGesture(width: geo.size.width))
-                .simultaneousGesture(tapGesture)
-        }
-        .aspectRatio(1, contentMode: .fit)
+        // Color.clear forces the outer bounds to a perfect square via aspectRatio —
+        // the overlay content fills it but never affects the outer size, so every
+        // tile in the grid is exactly the same dimensions regardless of icon glyph
+        // height or label line count.
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay(
+                ZStack(alignment: .topTrailing) {
+                    tileContent
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(key: TileWidthKey.self,
+                                                       value: geo.size.width)
+                            }
+                        )
+                    favoriteStar
+                }
+            )
+            .onPreferenceChange(TileWidthKey.self) { tileWidth = $0 }
     }
 
     private var tapGesture: some Gesture {
@@ -68,12 +75,14 @@ struct SoundTile: View {
                 .opacity(isOn ? 1 : 0)
         }
         .padding(6)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(tileBackground)
         .overlay(tileBorder)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .contentShape(Rectangle())
         .shadow(color: isOn ? design.accent.opacity(0.45) : .clear, radius: 6, y: 3)
+        .gesture(volumeDragGesture(width: tileWidth))
+        .simultaneousGesture(tapGesture)
     }
 
     private var iconGlyph: some View {
@@ -142,5 +151,13 @@ struct SoundTile: View {
     private var starColor: Color {
         if isFavorite { return Color(red: 1.0, green: 0.83, blue: 0.42) }
         return isOn ? Color.white.opacity(0.55) : .secondary.opacity(0.65)
+    }
+}
+
+/// Captures a tile's measured width so the drag gesture can convert pointer-X to volume.
+private struct TileWidthKey: PreferenceKey {
+    nonisolated(unsafe) static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

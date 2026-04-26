@@ -58,6 +58,24 @@ final class SavedMixesTests: XCTestCase {
     }
 
     @MainActor
+    func testOverwritePersists() {
+        let d = ephemeralDefaults()
+        let store = SavedMixes(defaults: d)
+        guard case .saved(let original) = store.save(name: "Mix",
+                                                     tracks: [MixTrack(id: "rain", volume: 0.5)]) else {
+            XCTFail(); return
+        }
+        store.overwrite(id: original.id,
+                        tracks: [MixTrack(id: "thunder", volume: 0.7)])
+
+        let reloaded = SavedMixes(defaults: d)
+        XCTAssertEqual(reloaded.mixes.count, 1)
+        XCTAssertEqual(reloaded.mixes.first?.id, original.id)
+        XCTAssertEqual(reloaded.mixes.first?.tracks.first?.id, "thunder")
+        XCTAssertEqual(reloaded.mixes.first?.tracks.first?.volume, 0.7)
+    }
+
+    @MainActor
     func testSaveWithUniqueSuffixPicksSmallestFree() {
         let store = SavedMixes(defaults: ephemeralDefaults())
         _ = store.save(name: "Mix", tracks: [MixTrack(id: "a", volume: 0.5)])

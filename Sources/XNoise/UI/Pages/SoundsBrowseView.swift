@@ -11,7 +11,7 @@ struct SoundsBrowseView: View {
 
     @State private var currentSectionId: String?
 
-    private let cols = Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
+    private let cols = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
     private struct Section: Identifiable, Equatable {
         let id: String
@@ -102,7 +102,7 @@ struct SoundsBrowseView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 4)
 
-            LazyVGrid(columns: cols, spacing: 6) {
+            LazyVGrid(columns: cols, spacing: 10) {
                 ForEach(section.tracks) { track in
                     let mixTrack = state.track(track.id)
                     SoundTile(

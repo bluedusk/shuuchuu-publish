@@ -4,7 +4,7 @@ struct FocusPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
     @EnvironmentObject var session: FocusSession
-    @EnvironmentObject var mixer: MixingController
+    @EnvironmentObject var state: MixState
 
     @State private var settingsHover = false
     @State private var ringHover = false
@@ -106,8 +106,9 @@ struct FocusPage: View {
 
     private func ringTap() {
         session.toggle()
-        // Mirror to audio: starting the timer resumes the master mix; pausing pauses it.
-        if session.isRunning { mixer.resumeAll() } else { mixer.pauseAll() }
+        // Mirror to audio: starting the timer plays everything; pausing pauses everything.
+        state.setAllPaused(!session.isRunning)
+        model.mixer.reconcileNow()
     }
 
     private var timeString: String {
@@ -144,18 +145,19 @@ struct FocusPage: View {
     }
 
     private var playAllButton: some View {
-        Button(action: { model.togglePlayAll() }) {
+        let anyPlaying = state.anyPlaying
+        return Button(action: { model.togglePlayAll() }) {
             HStack(spacing: 6) {
-                Image(systemName: mixer.masterPaused ? "play.fill" : "pause.fill")
+                Image(systemName: anyPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 11, weight: .semibold))
-                Text(mixer.masterPaused ? "PLAY ALL" : "PAUSE ALL")
+                Text(anyPlaying ? "PAUSE ALL" : "PLAY ALL")
                     .font(.system(size: 11, weight: .semibold))
                     .kerning(0.66)
             }
             .xnText(.secondary)
         }
         .buttonStyle(.plain)
-        .disabled(mixer.live.isEmpty)
+        .disabled(state.isEmpty)
     }
 
     private var addSoundButton: some View {
@@ -172,18 +174,18 @@ struct FocusPage: View {
     private var mixList: some View {
         ScrollView {
             VStack(spacing: 5) {
-                if mixer.live.isEmpty {
+                if state.isEmpty {
                     emptyPlaceholder
                 } else {
-                    ForEach(Array(mixer.live.values), id: \.id) { live in
-                        if let track = model.findTrack(id: live.id) {
+                    ForEach(state.tracks) { mixTrack in
+                        if let track = model.findTrack(id: mixTrack.id) {
                             MixChipRow(
                                 track: track,
-                                volume: live.volume,
-                                paused: live.paused || mixer.masterPaused,
-                                onVolumeChange: { v in model.setTrackVolume(live.id, v) },
-                                onTogglePause: { model.togglePause(trackId: live.id) },
-                                onRemove: { model.removeTrack(live.id) }
+                                volume: mixTrack.volume,
+                                paused: mixTrack.paused,
+                                onVolumeChange: { v in model.setTrackVolume(mixTrack.id, v) },
+                                onTogglePause: { model.togglePause(trackId: mixTrack.id) },
+                                onRemove: { model.removeTrack(mixTrack.id) }
                             )
                         }
                     }
@@ -191,6 +193,7 @@ struct FocusPage: View {
             }
         }
         .frame(maxHeight: 180)
+        .scrollIndicators(.never)
     }
 
     private var emptyPlaceholder: some View {

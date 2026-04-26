@@ -47,12 +47,21 @@ extension AppModel {
             cacheFile: appSupportDir.appendingPathComponent(Constants.catalogCacheFilename)
         )
         let cache = AudioCache(baseDir: cachesDir, downloader: URLSessionDownloader())
-        let mixer = MixingController()
+        let state = MixState()
         let focusSettings = FocusSettings()
         let session = FocusSession(settings: focusSettings)
         let favorites = Favorites()
-        return AppModel(
+        // resolveTrack is captured weakly via a closure so MixingController doesn't
+        // pin AppModel — but the closure must be set after AppModel is built. So we
+        // build the model first with a temporary controller, then thread the resolver.
+        // Simpler: build a small mutable resolver box that we wire in after init.
+        let resolverBox = TrackResolverBox()
+        let mixer = MixingController(state: state, cache: cache, resolveTrack: { id in
+            resolverBox.resolve?(id)
+        })
+        let model = AppModel(
             catalog: catalog,
+            state: state,
             mixer: mixer,
             cache: cache,
             focusSettings: focusSettings,
@@ -61,5 +70,14 @@ extension AppModel {
             favorites: favorites,
             prefs: prefs
         )
+        resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }
+        return model
     }
+}
+
+/// Captures the track-resolver closure so MixingController can be constructed before
+/// AppModel exists. Avoids a retain cycle by letting the resolver be weakly bound.
+@MainActor
+final class TrackResolverBox {
+    var resolve: ((String) -> Track?)?
 }

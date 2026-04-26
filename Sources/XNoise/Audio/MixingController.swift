@@ -1,198 +1,161 @@
 import AVFoundation
-import Combine
 
-/// Owns one AVAudioEngine + a shared master mixer and can play any number of tracks
-/// simultaneously. Each active track is represented by a `LiveTrack` holding its
-/// `NoiseSource` and the per-track volume. Master volume is on `masterMixer.outputVolume`.
+/// Audio engine reconciler. Observes `MixState` and makes the running `AVAudioEngine`
+/// reflect what the mix list says — attaching new tracks, detaching removed ones,
+/// and syncing per-track volume/pause.
 ///
-/// This replaces the single-source `AudioController` to match the design's multi-track
-/// mixing UX — users layer Rain + Fire + Brown Noise, each with its own slider.
+/// **Topology:** every source gets its own `AVAudioMixerNode`:
+/// `source.node → trackMixer → masterMixer → engine.mainMixerNode`.
+/// Per-track volume and per-track pause are uniform: `trackMixer.outputVolume`
+/// (set to the per-track volume, or to 0 when paused). This works for any source
+/// kind — `AVAudioPlayerNode`-backed (bundled/streamed) and `AVAudioSourceNode`-
+/// backed (procedural) alike.
+///
+/// **Reconcile contract:** mutating `MixState` is the only way to change what the
+/// audio engine plays. Direct calls into this controller (`pauseAll`, `resumeAll`,
+/// `setMasterVolume`) only configure engine-level state, not mix membership.
 @MainActor
 final class MixingController: ObservableObject {
-    struct LiveTrack: Equatable {
-        let id: String
-        var volume: Float
-        var paused: Bool = false
-    }
-
-    /// Every active track, keyed by track id. Paused tracks remain present but silenced.
-    @Published private(set) var live: [String: LiveTrack] = [:]
     @Published var masterVolume: Float = Constants.defaultVolume {
         didSet { masterMixer.outputVolume = masterVolume }
     }
-    /// Master pause state — independent of per-track pause; affects the engine output.
-    @Published private(set) var masterPaused: Bool = false
 
     private let engine = AVAudioEngine()
     private let masterMixer = AVAudioMixerNode()
-    private var sources: [String: NoiseSource] = [:]
 
-    init() {
+    private let state: MixState
+    private let cache: AudioCache
+    private let resolveTrack: (String) -> Track?
+
+    private struct AttachedTrack {
+        let source: NoiseSource
+        let trackMixer: AVAudioMixerNode
+        var started: Bool
+    }
+    private var attached: [String: AttachedTrack] = [:]
+    private var attaching: Set<String> = []
+
+    init(state: MixState, cache: AudioCache, resolveTrack: @escaping (String) -> Track?) {
+        self.state = state
+        self.cache = cache
+        self.resolveTrack = resolveTrack
+
         engine.attach(masterMixer)
         engine.connect(masterMixer, to: engine.mainMixerNode, format: nil)
         masterMixer.outputVolume = masterVolume
+
+        // No Combine subscriptions — the controller is driven explicitly via
+        // `reconcileNow()` from AppModel after every state mutation. Direct calls are
+        // simpler to reason about than @Published+sink+MainActor isolation.
     }
 
-    var isPlaying: Bool { !live.isEmpty }
+    /// Trigger a reconcile pass. Public so callers (e.g. `AppModel`) can re-trigger
+    /// after the catalog loads — saved track ids can't resolve to `Track` objects until
+    /// the catalog is available, so the initial reconcile at init time is a no-op for
+    /// any track whose catalog entry hasn't arrived yet.
+    func reconcileNow() { reconcile() }
 
-    /// Add a track to the active mix, or update its volume if already active.
-    func addOrUpdate(track: Track, volume: Float, cache: AudioCache) async {
-        if var existing = live[track.id] {
-            existing.volume = volume
-            live[track.id] = existing
-            updateNodeVolume(trackId: track.id, volume: volume)
-            return
+    /// Apply the current `MixState.tracks` to the audio engine: attach new tracks,
+    /// detach removed ones, and sync per-track volume/pause for the rest.
+    private func reconcile() {
+        let stateIDs = Set(state.tracks.map(\.id))
+
+        // Detach what's no longer in the mix.
+        for id in Array(attached.keys) where !stateIDs.contains(id) {
+            detach(id: id)
         }
 
-        let source = makeSource(for: track, cache: cache)
-        do {
-            try await source.prepare()
-        } catch {
-            return
+        // Attach new + sync existing.
+        for mixTrack in state.tracks {
+            if let entry = attached[mixTrack.id] {
+                applyVolume(entry: entry, mixTrack: mixTrack)
+            } else if !attaching.contains(mixTrack.id) {
+                attaching.insert(mixTrack.id)
+                Task { await attachSource(for: mixTrack.id) }
+            }
+            // If already attaching, the next reconcile (triggered when attach completes
+            // by virtue of mutating engine state, or by any subsequent state change)
+            // will sync volume.
         }
 
+        reconcileEngineState()
+    }
+
+    /// Bring the engine running-state in line with intent: it should be running iff
+    /// the mix is non-empty AND not master-paused. Also schedules deferred-start sources.
+    private func reconcileEngineState() {
+        let shouldRun = !attached.isEmpty && state.anyPlaying
+
+        if shouldRun {
+            if !engine.isRunning {
+                try? engine.start()
+            }
+            // Start any sources we deferred starting (because the engine wasn't running
+            // when they were attached). source.start() requires the engine to be running.
+            for id in attached.keys where attached[id]?.started == false {
+                attached[id]?.source.start()
+                attached[id]?.started = true
+            }
+        } else {
+            if engine.isRunning {
+                engine.pause()
+            }
+        }
+    }
+
+    private func attachSource(for trackId: String) async {
+        defer { attaching.remove(trackId) }
+
+        guard let track = resolveTrack(trackId) else { return }
+        let source = makeSource(for: track)
+        do { try await source.prepare() } catch { return }
+
+        // Mix may have changed during prep — bail if the track is no longer wanted
+        // or if a parallel attach already won.
+        guard state.contains(trackId), attached[trackId] == nil else { return }
+
+        let trackMixer = AVAudioMixerNode()
         engine.attach(source.node)
-        // Connect with the source's actual PCM format so mixed tracks with mismatched
-        // sample rates / channel counts (e.g. mono 48kHz white_noise alongside stereo
-        // 44.1kHz rain) get format-converted at the mixer instead of crashing the engine.
-        let connectFormat: AVAudioFormat? = (source as? BundledNoiseSource)?.audioFormat
-            ?? (source as? StreamedNoiseSource)?.audioFormat
-        engine.connect(source.node, to: masterMixer, format: connectFormat)
+        engine.attach(trackMixer)
+        engine.connect(source.node, to: trackMixer, format: source.audioFormat)
+        engine.connect(trackMixer, to: masterMixer, format: nil)
 
-        if !engine.isRunning {
-            do { try engine.start() } catch { return }
+        let entry = AttachedTrack(source: source, trackMixer: trackMixer, started: false)
+        if let mixTrack = state.track(trackId) {
+            applyVolume(entry: entry, mixTrack: mixTrack)
         }
+        attached[trackId] = entry
 
-        sources[track.id] = source
-        live[track.id] = LiveTrack(id: track.id, volume: volume)
+        reconcileEngineState()
+    }
 
-        // AVAudioPlayerNode.volume controls per-track level.
-        if let bundled = source as? BundledNoiseSource {
-            bundled.scheduleLoop()
-            if let player = bundled.node as? AVAudioPlayerNode {
-                player.volume = volume
-                player.play()
-            }
-        } else if let streamed = source as? StreamedNoiseSource {
-            streamed.scheduleLoop()
-            if let player = streamed.node as? AVAudioPlayerNode {
-                player.volume = volume
-                player.play()
-            }
-        } else if let src = source as? ProceduralNoiseSource {
-            // Procedural sources use AVAudioSourceNode; they have no per-node volume knob.
-            // Work around by wrapping output volume on a small per-track mixer — simplest
-            // for v1 is to just play at master volume (procedural tracks rarely need
-            // independent level control in mixing scenarios).
-            _ = src
+    private func detach(id: String) {
+        guard let entry = attached.removeValue(forKey: id) else { return }
+        if entry.started {
+            entry.source.stop()
+        }
+        if entry.source.node.engine != nil {
+            engine.detach(entry.source.node)
+        }
+        if entry.trackMixer.engine != nil {
+            engine.detach(entry.trackMixer)
         }
     }
 
-    /// Update an already-playing track's volume.
-    func setVolume(trackId: String, volume: Float) {
-        guard var t = live[trackId] else { return }
-        t.volume = volume
-        live[trackId] = t
-        updateNodeVolume(trackId: trackId, volume: volume)
+    private func applyVolume(entry: AttachedTrack, mixTrack: MixTrack) {
+        entry.trackMixer.outputVolume = mixTrack.paused ? 0 : mixTrack.volume
     }
 
-    /// Remove a track from the mix.
-    func remove(trackId: String) {
-        guard let source = sources[trackId] else { return }
-        if let player = source.node as? AVAudioPlayerNode {
-            player.stop()
-        }
-        if source.node.engine != nil {
-            engine.detach(source.node)
-        }
-        sources.removeValue(forKey: trackId)
-        live.removeValue(forKey: trackId)
-
-        if live.isEmpty, engine.isRunning {
-            engine.pause()
-        }
-    }
-
-    /// Stop and tear down everything.
+    /// Detach everything. Called on system sleep; survives across wake (reconcile
+    /// re-attaches when state is touched).
     func stopAll() {
-        for id in Array(live.keys) {
-            remove(trackId: id)
+        for id in Array(attached.keys) {
+            detach(id: id)
         }
-        masterPaused = false
+        if engine.isRunning { engine.pause() }
     }
 
-    /// Pause a single track without removing it. Volume is preserved.
-    func pause(trackId: String) {
-        guard var t = live[trackId], !t.paused else { return }
-        t.paused = true
-        live[trackId] = t
-        if let player = sources[trackId]?.node as? AVAudioPlayerNode {
-            player.pause()
-        }
-    }
-
-    /// Resume a paused track.
-    func resume(trackId: String) {
-        guard var t = live[trackId], t.paused else { return }
-        t.paused = false
-        live[trackId] = t
-        if let player = sources[trackId]?.node as? AVAudioPlayerNode {
-            player.play()
-        }
-    }
-
-    /// Master pause — stops engine output without changing per-track state.
-    func pauseAll() {
-        guard !masterPaused else { return }
-        masterPaused = true
-        if engine.isRunning {
-            engine.pause()
-        }
-    }
-
-    /// Resume master playback. Per-track paused tracks remain paused.
-    func resumeAll() {
-        guard masterPaused else { return }
-        masterPaused = false
-        if !live.isEmpty, !engine.isRunning {
-            try? engine.start()
-        }
-    }
-
-    /// True if any live track has audio actually playing right now.
-    var hasAudibleTrack: Bool {
-        !masterPaused && live.values.contains(where: { !$0.paused })
-    }
-
-    /// Set the active mix wholesale (e.g. when applying a preset).
-    /// Resumes master playback and any per-track paused tracks that are part of the new mix —
-    /// stale pause state was making preset-applied tracks appear in the list but stay silent.
-    func applyMix(_ mix: [String: Float], resolving: (String) -> Track?, cache: AudioCache) async {
-        // Remove tracks no longer in the mix.
-        for id in Array(live.keys) where (mix[id] ?? 0) < 0.02 {
-            remove(trackId: id)
-        }
-        // Add/update each entry in the new mix.
-        for (id, vol) in mix where vol >= 0.02 {
-            guard let track = resolving(id) else { continue }
-            await addOrUpdate(track: track, volume: vol, cache: cache)
-            // Force-resume in case the track was previously paused — applying a preset
-            // implies "I want to hear this", regardless of prior state.
-            resume(trackId: id)
-        }
-        // Lift master pause when a preset is applied.
-        if masterPaused { resumeAll() }
-    }
-
-    // MARK: - Private helpers
-
-    private func updateNodeVolume(trackId: String, volume: Float) {
-        if let player = sources[trackId]?.node as? AVAudioPlayerNode {
-            player.volume = volume
-        }
-    }
-
-    private func makeSource(for track: Track, cache: AudioCache) -> NoiseSource {
+    private func makeSource(for track: Track) -> NoiseSource {
         switch track.kind {
         case .procedural(let variant):
             return ProceduralNoiseSource(variant: variant, id: track.id, displayName: track.name)

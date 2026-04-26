@@ -63,4 +63,14 @@ final class BundledNoiseSource: NoiseSource, @unchecked Sendable {
         guard let player = node as? AVAudioPlayerNode, let buf = buffer else { return }
         player.scheduleBuffer(buf, at: nil, options: .loops, completionHandler: nil)
     }
+
+    func start() {
+        guard let player = node as? AVAudioPlayerNode else { return }
+        scheduleLoop()
+        player.play()
+    }
+
+    func stop() {
+        (node as? AVAudioPlayerNode)?.stop()
+    }
 }

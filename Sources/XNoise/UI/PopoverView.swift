@@ -53,14 +53,10 @@ struct PopoverView: View {
         .focusEffectDisabled()       // suppress system blue focus rings on every button in the popover
         .preferredColorScheme(design.theme.colorScheme)
         // .system → colorScheme is nil → SwiftUI follows NSApp.effectiveAppearance
+        .environmentObject(model.state)
         .environmentObject(model.session)
         .environmentObject(model.mixer)
         .environmentObject(model.focusSettings)
         .environmentObject(model.favorites)
-        .task {
-            if model.categories.isEmpty {
-                await model.handleLaunch()
-            }
-        }
     }
 }

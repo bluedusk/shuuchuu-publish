@@ -4,11 +4,13 @@ final class ProceduralNoiseSource: NoiseSource, @unchecked Sendable {
     let id: String
     let displayName: String
     let node: AVAudioNode
+    let audioFormat: AVAudioFormat?
     var isReady: Bool { true }
 
     init(variant: ProceduralVariant, id: String, displayName: String, sampleRate: Double = 48000) {
         self.id = id
         self.displayName = displayName
+        self.audioFormat = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)
 
         let box = RendererBox(renderer: Self.makeRenderer(variant: variant, sampleRate: sampleRate))
 

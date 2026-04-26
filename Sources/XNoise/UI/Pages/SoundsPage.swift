@@ -4,7 +4,7 @@ struct SoundsPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
     @EnvironmentObject var favorites: Favorites
-    @EnvironmentObject var mixer: MixingController
+    @EnvironmentObject var state: MixState
 
     private let cols = Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
 
@@ -25,7 +25,7 @@ struct SoundsPage: View {
                     .font(.system(size: 12, weight: .semibold))
                     .kerning(0.72)
                     .xnText(.secondary)
-                Text("\(mixer.live.count) in current mix")
+                Text("\(state.count) in current mix")
                     .font(.system(size: 12))
                     .xnText(.primary)
             }
@@ -86,13 +86,13 @@ struct SoundsPage: View {
         ScrollView {
             LazyVGrid(columns: cols, spacing: 6) {
                 ForEach(filteredTracks) { track in
-                    let live = mixer.live[track.id]
+                    let mixTrack = state.track(track.id)
                     SoundTile(
                         track: track,
-                        isOn: live != nil,
-                        volume: live?.volume ?? 0,
+                        isOn: mixTrack != nil,
+                        volume: mixTrack?.volume ?? 0,
                         isFavorite: favorites.contains(track.id),
-                        onTap: { Task { await model.toggleTrack(track) } },
+                        onTap: { model.toggleTrack(track) },
                         onToggleFav: { favorites.toggle(track.id) }
                     )
                 }
@@ -101,6 +101,7 @@ struct SoundsPage: View {
             .padding(.top, 8)
             .padding(.bottom, 10)
         }
+        .scrollIndicators(.never)
     }
 
     private var presetsStrip: some View {
@@ -114,7 +115,7 @@ struct SoundsPage: View {
                 HStack(spacing: 5) {
                     ForEach(Presets.all) { preset in
                         Button {
-                            Task { await model.applyPreset(preset) }
+                            model.applyPreset(preset)
                         } label: {
                             Text(preset.name)
                                 .font(.system(size: 11, weight: .medium))

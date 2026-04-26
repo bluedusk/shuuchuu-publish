@@ -12,7 +12,7 @@ struct MenubarLabel: View {
             Text("集中")
                 .font(.system(size: 13, weight: .medium))
 
-            if model.mixer.isPlaying {
+            if !model.state.isEmpty {
                 EqBars(color: design.accent)
 
                 if model.focusSettings.menubarTimer && model.session.isRunning {
@@ -35,12 +35,12 @@ struct MenubarLabel: View {
 
     /// Compact label for the current mix; nil when nothing meaningful to show.
     private var mixLabel: String? {
-        let n = model.mixer.live.count
-        if n == 0 { return nil }
-        if n == 1, let id = model.mixer.live.keys.first, let t = model.findTrack(id: id) {
+        let tracks = model.state.tracks
+        if tracks.isEmpty { return nil }
+        if tracks.count == 1, let t = model.findTrack(id: tracks[0].id) {
             return t.name
         }
-        return "\(n) sounds"
+        return "\(tracks.count) sounds"
     }
 }
 

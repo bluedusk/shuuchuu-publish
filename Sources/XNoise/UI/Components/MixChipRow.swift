@@ -37,9 +37,10 @@ struct MixChipRow: View {
             // Per-track play/pause — visible always when paused, only on hover when playing
             Button(action: onTogglePause) {
                 Image(systemName: paused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.secondary)
-                    .frame(width: 18, height: 18)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .opacity(paused || isHovered ? 1 : 0)
@@ -47,9 +48,10 @@ struct MixChipRow: View {
             // Remove × — only on hover
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .frame(width: 18, height: 18)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .opacity(isHovered ? 1 : 0)

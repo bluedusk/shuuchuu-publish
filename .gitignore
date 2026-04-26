@@ -9,3 +9,6 @@ default.profraw
 # local dev content — sound files are not part of the repo
 sounds/
 catalog.json
+
+# brainstorming visual companion cache (HTML mockups, server state)
+.superpowers/

@@ -41,8 +41,6 @@ struct MixRow: View {
     private var applyRow: some View {
         Button(action: onApply) {
             HStack(spacing: 10) {
-                MixIconStack(trackIds: mix.trackIds, rowBackground: solidRowBg)
-                    .frame(width: 56, alignment: .leading)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(mix.name)
                         .font(.system(size: 12, weight: .medium))
@@ -52,18 +50,6 @@ struct MixRow: View {
                         .font(.system(size: 10.5))
                         .lineLimit(1)
                         .xnText(.tertiary)
-                    if isActive {
-                        Text("▶ ACTIVE")
-                            .font(.system(size: 9, weight: .semibold))
-                            .kerning(0.5)
-                            .foregroundStyle(design.accent)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(
-                                Capsule().fill(design.accent.opacity(0.15))
-                            )
-                            .padding(.top, 2)
-                    }
                 }
                 Spacer(minLength: 0)
                 if mix.isCustom {
@@ -96,13 +82,6 @@ struct MixRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    /// A solid color matching the row fill, used for icon-bubble cut-outs.
-    private var solidRowBg: Color {
-        // Liquid Glass over a wallpaper makes computing a literal compositor color hard;
-        // approximate with a near-popover-bg solid so the cut-outs read as a clean punch.
-        Color(red: 0.10, green: 0.12, blue: 0.16)
     }
 
     private var subline: String {

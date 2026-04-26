@@ -11,11 +11,7 @@ struct FocusPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if model.saveMode.isActive {
-                SaveMixHeader()
-            } else {
-                header
-            }
+            header
             ringBlock
             Hairline().padding(.horizontal, 22).padding(.top, 4).padding(.bottom, 10)
             mixSection
@@ -139,7 +135,7 @@ struct FocusPage: View {
             HStack {
                 playAllButton
                 Spacer()
-                saveMixButton
+                clearAllButton
                 addSoundButton
             }
             .padding(.horizontal, 16)
@@ -165,15 +161,15 @@ struct FocusPage: View {
         .disabled(state.isEmpty)
     }
 
-    private var saveMixButton: some View {
-        Button(action: { model.beginSaveMix() }) {
-            Text("Save mix")
+    private var clearAllButton: some View {
+        Button(action: { model.clearMix() }) {
+            Text("Clear all")
                 .font(.system(size: 11, weight: .medium))
-                .xnText(.secondary)
+                .foregroundStyle(state.isEmpty ? Color.white.opacity(0.25)
+                                                : Color.red.opacity(0.75))
         }
         .buttonStyle(.plain)
         .disabled(state.isEmpty)
-        .opacity(state.isEmpty ? 0.4 : 1)
         .padding(.trailing, 12)
     }
 
@@ -181,7 +177,7 @@ struct FocusPage: View {
         Button(action: { model.goTo(.sounds) }) {
             HStack(spacing: 3) {
                 Text("+").font(.system(size: 13))
-                Text("Add sound").font(.system(size: 11, weight: .medium))
+                Text("Select").font(.system(size: 11, weight: .medium))
             }
             .xnText(.secondary)
         }
@@ -214,7 +210,7 @@ struct FocusPage: View {
     }
 
     private var emptyPlaceholder: some View {
-        Text("No sounds playing — tap Add sound below")
+        Text("No sounds playing — tap Select below")
             .font(.system(size: 11))
             .xnText(.tertiary)
             .frame(maxWidth: .infinity)

@@ -146,6 +146,11 @@ final class AppModel: ObservableObject {
         mixer.reconcileNow()
     }
 
+    func clearMix() {
+        state.clear()
+        mixer.reconcileNow()
+    }
+
     // MARK: - Save mix flow
 
     func beginSaveMix() {

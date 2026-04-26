@@ -24,16 +24,19 @@ struct SoundsBrowseView: View {
         var result: [Section] = []
         let favTracks = model.allTracks.map(\.track).filter { favorites.contains($0.id) }
         if !favTracks.isEmpty {
-            result.append(.init(id: "favorites", title: "★ FAVORITES", isStar: true, tracks: favTracks))
+            result.append(.init(id: "favorites", title: "★ Favorites", isStar: true, tracks: favTracks))
         }
         for cat in model.categories {
-            result.append(.init(id: cat.id, title: cat.name.uppercased(), isStar: false, tracks: cat.tracks))
+            result.append(.init(id: cat.id, title: cat.name, isStar: false, tracks: cat.tracks))
         }
         return result
     }
 
     private var jumpSections: [JumpSection] {
-        sections.map { JumpSection(id: $0.id, title: $0.title.replacingOccurrences(of: "★ ", with: ""), isStar: $0.isStar) }
+        sections.map { section in
+            let pillTitle = section.title.replacingOccurrences(of: "★ ", with: "")
+            return JumpSection(id: section.id, title: pillTitle, isStar: section.isStar)
+        }
     }
 
     var body: some View {
@@ -90,7 +93,7 @@ struct SoundsBrowseView: View {
 
     private func sectionView(_ section: Section) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(section.title)
+            Text(section.title.uppercased())
                 .font(.system(size: 10, weight: .semibold))
                 .kerning(0.8)
                 .foregroundStyle(section.isStar ? Color(red: 1.0, green: 0.83, blue: 0.42).opacity(0.7)

@@ -78,15 +78,18 @@ struct SoundTile: View {
 
     private var iconGlyph: some View {
         Image(systemName: icon.symbol)
-            .font(.system(size: 22, weight: .light))
+            .font(.system(size: 20, weight: .light))
+            .frame(width: 28, height: 28)  // fixed bounding box — different SF Symbols
+                                            // have different intrinsic heights, this normalizes them
             .foregroundStyle(isOn ? Color.white : .primary.opacity(0.75))
     }
 
     private var nameLabel: some View {
         Text(track.name)
-            .font(.system(size: 11, weight: .regular))
+            .font(.system(size: 10.5, weight: .regular))
             .multilineTextAlignment(.center)
             .lineLimit(2)
+            .frame(height: 26, alignment: .top)  // fixed for 1 OR 2 lines at 10.5pt
             .foregroundStyle(isOn ? Color.white : .primary.opacity(0.7))
     }
 

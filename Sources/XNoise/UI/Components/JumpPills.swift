@@ -26,14 +26,18 @@ struct JumpPills: View {
     @EnvironmentObject var design: DesignSettings
 
     var body: some View {
-        FlowLayout(spacing: 4) {
-            ForEach(sections) { section in
-                pill(section)
+        HStack(spacing: 0) {
+            FlowLayout(spacing: 4) {
+                ForEach(sections) { section in
+                    pill(section)
+                }
             }
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
         .background(Color.black.opacity(0.15))
         .overlay(Divider().opacity(0.3), alignment: .bottom)
     }
@@ -43,8 +47,8 @@ struct JumpPills: View {
         let label = section.isStar ? "★" : section.title
         return Button { onTap(section.id) } label: {
             Text(label)
-                .font(.system(size: 10.5, weight: .medium))
-                .kerning(0.2)
+                .font(.system(size: 10, weight: .regular))
+                .kerning(0.1)
                 .padding(.horizontal, section.isStar ? 7 : 9)
                 .padding(.vertical, 4)
                 .foregroundStyle(pillForeground(section: section, isCurrent: isCurrent))

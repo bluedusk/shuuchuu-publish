@@ -105,7 +105,7 @@ final class AppModelSaveMixTests: XCTestCase {
         XCTAssertTrue(store.mixes.contains(where: { $0.name == "Existing (2)" }))
     }
 
-    func testCurrentlyLoadedMixIdMatchesByTrackIdSet() {
+    func testCurrentlyLoadedMixIdMatchesByTrackIdSet() async {
         let (model, store) = makeModel()
         guard case .saved(let m) = store.save(name: "Pair",
                                               tracks: [MixTrack(id: "rain", volume: 0.5),
@@ -114,6 +114,31 @@ final class AppModelSaveMixTests: XCTestCase {
         }
         model.state.append(id: "thunder", volume: 0.9)  // different volume
         model.state.append(id: "rain",    volume: 0.1)  // different order
+
+        // Allow the Combine subscription to fire on the main runloop.
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms is generous
+
         XCTAssertEqual(model.currentlyLoadedMixId, AnyHashable(m.id))
+    }
+
+    func testBeginSaveMixIsNoOpWhenStateIsEmpty() {
+        let (model, _) = makeModel()
+        XCTAssertTrue(model.state.isEmpty)
+        model.beginSaveMix()
+        XCTAssertEqual(model.saveMode, .inactive)
+    }
+
+    func testCommitSaveMixIsNoOpOnWhitespaceOnlyName() {
+        let (model, store) = makeModel()
+        model.state.append(id: "rain", volume: 0.5)
+        model.beginSaveMix()
+        model.updateSaveName("   ")
+        model.commitSaveMix()
+        // Save was rejected — still in naming mode, store still empty.
+        if case .naming = model.saveMode {} else {
+            XCTFail("expected to remain in .naming, got \(model.saveMode)")
+        }
+        XCTAssertTrue(store.mixes.isEmpty)
     }
 }

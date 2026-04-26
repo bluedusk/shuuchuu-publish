@@ -42,6 +42,7 @@ final class AppModel: ObservableObject {
     @Published var categoryFilter: CategoryFilter = .all
     @Published var soundsTab: SoundsTab = .sounds
     @Published var saveMode: SaveMode = .inactive
+    @Published private(set) var currentlyLoadedMixId: AnyHashable?
 
     init(
         catalog: Catalog,
@@ -66,6 +67,16 @@ final class AppModel: ObservableObject {
         self.prefs = prefs
         self.savedMixes = savedMixes
         self.mixer.masterVolume = prefs.volume
+
+        // Recompute the currently-loaded match whenever the active mix or the saved-mix
+        // list changes. Per spec §11 — avoids per-frame allocations from view bodies.
+        state.$tracks
+            .combineLatest(savedMixes.$mixes)
+            .map { tracks, mixes -> AnyHashable? in
+                Self.matchLoadedMix(activeTracks: tracks, savedMixes: mixes)
+            }
+            .receive(on: RunLoop.main)
+            .assign(to: &$currentlyLoadedMixId)
     }
 
     // MARK: - Catalog
@@ -170,7 +181,7 @@ final class AppModel: ObservableObject {
 
     func saveAsNewWithSuffix() {
         guard case .confirmingOverwrite(let text, _) = saveMode else { return }
-        _ = savedMixes.saveWithUniqueSuffix(baseName: text, tracks: state.tracks)
+        savedMixes.saveWithUniqueSuffix(baseName: text, tracks: state.tracks)
         saveMode = .inactive
     }
 
@@ -184,13 +195,13 @@ final class AppModel: ObservableObject {
 
     // MARK: - Currently-loaded helper
 
-    /// Returns the id (UUID for SavedMix or String for Preset) of the mix whose track-id set
-    /// matches the current MixState. Volume differences and ordering are ignored. Nil if no
-    /// match (or the active mix is empty).
-    var currentlyLoadedMixId: AnyHashable? {
-        guard !state.tracks.isEmpty else { return nil }
-        let active = Set(state.tracks.map(\.id))
-        if let m = savedMixes.mixes.first(where: { Set($0.tracks.map(\.id)) == active }) {
+    /// Pure helper: returns the id of the saved mix or preset whose track-id set matches
+    /// the active mix's track-id set. Volume + ordering are ignored. nil if no match.
+    private static func matchLoadedMix(activeTracks: [MixTrack],
+                                       savedMixes: [SavedMix]) -> AnyHashable? {
+        guard !activeTracks.isEmpty else { return nil }
+        let active = Set(activeTracks.map(\.id))
+        if let m = savedMixes.first(where: { Set($0.tracks.map(\.id)) == active }) {
             return AnyHashable(m.id)
         }
         if let p = Presets.all.first(where: { Set($0.mix.keys) == active }) {

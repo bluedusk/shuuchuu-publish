@@ -117,6 +117,9 @@ Pills serve as a **visible table of contents and a scroll-jump shortcut** — no
 - **Tile design preserved** from the current `SoundTile` (icon + name + volume bar reserved space + favorite star top-right). The accent gradient on the on-state is unchanged.
 - Tap a tile = add (with default volume 0.5) or remove from current mix.
 - Star tap = toggle favorite (does not affect mix membership).
+- **Drag horizontally on an active tile = adjust volume.** The visible bar at the bottom of the tile updates in real time. The drag zone is the entire tile body (not just the 2pt bar) — drag distance maps linearly across the tile width to the 0.0–1.0 range. The gesture only activates when the tile is on; off-tiles ignore drag (a tap-then-drag becomes "add then immediately set volume," which is fine).
+- Tap-vs-drag disambiguation: any drag exceeding ~4pt promotes to a volume gesture and suppresses the toggle. Lift-without-drag is a tap.
+- A subtle one-time hint can be shown the first time a user activates a tile ("Drag to adjust volume"); not required for v1.
 
 ### 3.4 Behavior notes
 
@@ -315,6 +318,7 @@ Inherits the existing app tokens:
 | Sounds tab pills | Star (favs) | gold/90% label |
 | Tile | Off | `white/4%` fill, white/10% border |
 | Tile | On | accent gradient fill, white/40% border, soft glow |
+| Tile | Dragging (volume) | accent border tightens to 1.5pt; volume bar pulses brighter while the gesture is active |
 | Tile | Favorite (star) | gold star top-right |
 | Mix row | Default (custom) | `white/4%` fill |
 | Mix row | Default (preset) | `accent/4%` fill |
@@ -364,4 +368,5 @@ These are hints for the implementation plan; the AI designer can ignore section 
 - **Save trigger duplication** between Sounds and Focus: both pages dispatch through the same `AppModel.beginSaveMix()` / `commitSaveMix(name:)` API; the inline header is a shared overlay component owned by `PopoverView` so it can render above whichever page is current.
 - **Currently-loaded match:** compute a `Set<String>` of current track ids and compare against each saved/preset mix's track-id set. Cache per-mix sets; recompute only when MixState changes.
 - **Tests:** add `SavedMixesTests` (round-trip persistence, duplicate-name behavior), and extend `AppModelTests` with `beginSaveMix` / `commitSaveMix` flows.
+- **Tile drag-to-volume:** `SoundTile` gains a `DragGesture(minimumDistance: 4)` that suppresses the tap when promoted. While active, route per-frame deltas through `model.setTrackVolume`. Off-state tiles short-circuit the gesture (no-op). Test with `AppModelTests` covering rapid tap-vs-drag arbitration.
 - **Existing constraints** from CLAUDE.md still apply: `@EnvironmentObject` for observed objects (no init-passed `@ObservedObject`), no `@MainActor` on UserDefaults wrappers, `.contentShape` after `.clipShape`, etc.

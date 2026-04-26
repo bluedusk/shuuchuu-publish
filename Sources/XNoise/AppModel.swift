@@ -141,6 +141,12 @@ final class AppModel: ObservableObject {
         mixer.reconcileNow()
     }
 
+    func applySavedMix(_ mix: SavedMix) {
+        let newTracks = mix.tracks.filter { $0.volume >= 0.02 }
+        state.replace(with: newTracks)
+        mixer.reconcileNow()
+    }
+
     // MARK: - Save mix flow
 
     func beginSaveMix() {

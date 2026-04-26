@@ -11,7 +11,11 @@ struct FocusPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            if model.saveMode.isActive {
+                SaveMixHeader()
+            } else {
+                header
+            }
             ringBlock
             Hairline().padding(.horizontal, 22).padding(.top, 4).padding(.bottom, 10)
             mixSection
@@ -135,6 +139,7 @@ struct FocusPage: View {
             HStack {
                 playAllButton
                 Spacer()
+                saveMixButton
                 addSoundButton
             }
             .padding(.horizontal, 16)
@@ -158,6 +163,18 @@ struct FocusPage: View {
         }
         .buttonStyle(.plain)
         .disabled(state.isEmpty)
+    }
+
+    private var saveMixButton: some View {
+        Button(action: { model.beginSaveMix() }) {
+            Text("Save mix")
+                .font(.system(size: 11, weight: .medium))
+                .xnText(.secondary)
+        }
+        .buttonStyle(.plain)
+        .disabled(state.isEmpty)
+        .opacity(state.isEmpty ? 0.4 : 1)
+        .padding(.trailing, 12)
     }
 
     private var addSoundButton: some View {

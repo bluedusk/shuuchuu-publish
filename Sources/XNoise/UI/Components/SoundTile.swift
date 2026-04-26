@@ -2,15 +2,23 @@ import SwiftUI
 
 /// Pressable sound tile on the Sounds page. On when active in the mix.
 /// Shows a favorite star in the top-right.
+///
+/// Gestures:
+///   - Tap (lift without drag) toggles the track in/out of the mix.
+///   - When on, dragging horizontally on the tile body sets the per-track volume —
+///     the visible bar at the bottom updates in real time. A 4pt minimum distance
+///     promotes the gesture and suppresses the tap.
 struct SoundTile: View {
     let track: Track
     let isOn: Bool
     let volume: Float
     let isFavorite: Bool
     let onTap: () -> Void
+    let onVolumeChange: (Float) -> Void
     let onToggleFav: () -> Void
 
     @EnvironmentObject var design: DesignSettings
+    @State private var dragActive = false
 
     private var icon: TrackIcon { TrackIconMap.icon(for: track.id) }
 
@@ -22,8 +30,32 @@ struct SoundTile: View {
     }
 
     private var tileButton: some View {
-        Button(action: onTap) { tileContent }
-            .buttonStyle(.plain)
+        GeometryReader { geo in
+            tileContent
+                .gesture(volumeDragGesture(width: geo.size.width))
+                .simultaneousGesture(tapGesture)
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+
+    private var tapGesture: some Gesture {
+        TapGesture().onEnded {
+            if !dragActive { onTap() }
+        }
+    }
+
+    private func volumeDragGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { value in
+                guard isOn, width > 0 else { return }
+                dragActive = true
+                let raw = Float(value.location.x / width)
+                let clamped = max(0, min(1, raw))
+                onVolumeChange(clamped)
+            }
+            .onEnded { _ in
+                DispatchQueue.main.async { dragActive = false }
+            }
     }
 
     private var tileContent: some View {
@@ -32,17 +64,15 @@ struct SoundTile: View {
             iconGlyph
             nameLabel
             Spacer(minLength: 0)
-            // Always reserve the volume-bar slot so the tile height stays stable
-            // when toggling on/off — only the visibility changes.
             volumeBar
                 .opacity(isOn ? 1 : 0)
         }
         .padding(6)
         .frame(maxWidth: .infinity)
-        .aspectRatio(1, contentMode: .fit)
         .background(tileBackground)
         .overlay(tileBorder)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(Rectangle())
         .shadow(color: isOn ? design.accent.opacity(0.45) : .clear, radius: 6, y: 3)
     }
 
@@ -67,7 +97,7 @@ struct SoundTile: View {
                 Capsule()
                     .fill(Color.white)
                     .frame(width: geo.size.width * Double(volume))
-                    .shadow(color: .white.opacity(0.9), radius: 3)
+                    .shadow(color: .white.opacity(dragActive ? 1.0 : 0.9), radius: dragActive ? 5 : 3)
             }
             .frame(height: 2)
         }
@@ -90,7 +120,10 @@ struct SoundTile: View {
 
     private var tileBorder: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(Color.white.opacity(isOn ? 0.40 : 0.15), lineWidth: 1)
+            .strokeBorder(
+                isOn && dragActive ? Color.white.opacity(0.6) : Color.white.opacity(isOn ? 0.40 : 0.15),
+                lineWidth: isOn && dragActive ? 1.5 : 1
+            )
     }
 
     private var favoriteStar: some View {

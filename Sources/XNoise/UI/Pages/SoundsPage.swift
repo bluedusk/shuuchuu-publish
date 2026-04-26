@@ -93,6 +93,7 @@ struct SoundsPage: View {
                         volume: mixTrack?.volume ?? 0,
                         isFavorite: favorites.contains(track.id),
                         onTap: { model.toggleTrack(track) },
+                        onVolumeChange: { v in model.setTrackVolume(track.id, v) },
                         onToggleFav: { favorites.toggle(track.id) }
                     )
                 }

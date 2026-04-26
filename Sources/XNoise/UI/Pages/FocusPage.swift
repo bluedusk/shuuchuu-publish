@@ -147,41 +147,24 @@ struct FocusPage: View {
 
     private var playAllButton: some View {
         let anyPlaying = state.anyPlaying
-        return Button(action: { model.togglePlayAll() }) {
-            HStack(spacing: 6) {
-                Image(systemName: anyPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                Text(anyPlaying ? "PAUSE ALL" : "PLAY ALL")
-                    .font(.system(size: 11, weight: .semibold))
-                    .kerning(0.66)
-            }
-            .xnText(.secondary)
+        return IconButton(systemName: anyPlaying ? "pause.fill" : "play.fill") {
+            model.togglePlayAll()
         }
-        .buttonStyle(.plain)
         .disabled(state.isEmpty)
+        .opacity(state.isEmpty ? 0.4 : 1)
+        .help(anyPlaying ? "Pause all" : "Play all")
     }
 
     private var clearAllButton: some View {
-        Button(action: { model.clearMix() }) {
-            Text("Clear all")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(state.isEmpty ? Color.white.opacity(0.25)
-                                                : Color.red.opacity(0.75))
-        }
-        .buttonStyle(.plain)
-        .disabled(state.isEmpty)
-        .padding(.trailing, 12)
+        IconButton(systemName: "trash") { model.clearMix() }
+            .disabled(state.isEmpty)
+            .opacity(state.isEmpty ? 0.4 : 1)
+            .help("Clear all sounds")
     }
 
     private var addSoundButton: some View {
-        Button(action: { model.goTo(.sounds) }) {
-            HStack(spacing: 3) {
-                Text("+").font(.system(size: 13))
-                Text("Select").font(.system(size: 11, weight: .medium))
-            }
-            .xnText(.secondary)
-        }
-        .buttonStyle(.plain)
+        IconButton(systemName: "plus") { model.goTo(.sounds) }
+            .help("Select sounds")
     }
 
     private var mixList: some View {

@@ -39,7 +39,6 @@ final class AppModel: ObservableObject {
     let savedMixes: SavedMixes
 
     @Published var page: AppPage = .focus
-    @Published var categoryFilter: CategoryFilter = .all
     @Published var soundsTab: SoundsTab = .sounds
     @Published var saveMode: SaveMode = .inactive
     @Published private(set) var currentlyLoadedMixId: AnyHashable?
@@ -94,10 +93,10 @@ final class AppModel: ObservableObject {
 
     func findTrack(id: String) -> Track? { trackIndex[id] }
 
-    /// All tracks flattened across catalog categories, paired with their pill filter.
-    var allTracks: [(track: Track, filter: CategoryFilter)] {
+    /// All tracks flattened across catalog categories.
+    var allTracks: [(track: Track, categoryId: String)] {
         categories.flatMap { cat in
-            cat.tracks.map { t in (t, CategoryFilter.category(for: t.id, fallback: cat.id)) }
+            cat.tracks.map { t in (t, cat.id) }
         }
     }
 
@@ -249,40 +248,3 @@ final class AppModel: ObservableObject {
     func handleWake() async { /* no auto-resume for v2 flow */ }
 }
 
-/// Sound filter categories used by the Sounds page pills.
-enum CategoryFilter: String, CaseIterable, Equatable {
-    case all, favorites, weather, water, nature, ambient, noise
-
-    var display: String {
-        switch self {
-        case .all: return "All"
-        case .favorites: return "★ Favs"
-        case .weather: return "Weather"
-        case .water: return "Water"
-        case .nature: return "Nature"
-        case .ambient: return "Ambient"
-        case .noise: return "Noise"
-        }
-    }
-
-    /// Map a track id to the filter pill it belongs in. Tracks that don't fit any
-    /// pill (e.g. binaural_music, speech_blocker) are findable only via .all.
-    static func category(for id: String, fallback: String) -> CategoryFilter {
-        switch id {
-        case "rain", "rain_on_surface", "loud_rain", "thunder", "wind":
-            return .weather
-        case "ocean", "ocean_waves", "ocean_birds", "ocean_boat",
-             "ocean_bubbles", "ocean_splash", "seagulls", "stream":
-            return .water
-        case "fire", "birds", "crickets", "insects":
-            return .nature
-        case "cafe", "coffee_maker", "mechanical_keyboard", "copier",
-             "airplane_cabin", "air_conditioner", "co_workers", "chimes", "train_tracks":
-            return .ambient
-        case "white_noise", "pink_noise", "brown_noise", "green_noise", "fluorescent_hum":
-            return .noise
-        default:
-            return .all
-        }
-    }
-}

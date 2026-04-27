@@ -29,7 +29,7 @@ The Sounds page is the user's surface for picking what plays. Today it conflates
 - Renaming saved mixes after creation. (Lifecycle: save + delete only. Re-save with same name overwrites with confirmation.)
 - Reordering custom mixes. (Implicit order: most-recently-saved first.)
 - Editing presets.
-- Internet soundtracks (YouTube/Spotify) — likely a separate page later.
+- Internet soundtracks (YouTube/Spotify) — covered by the separate spec at `docs/superpowers/specs/2026-04-27-soundtracks-design.md` (third tab on this same page).
 - Search across the catalog (called out as a near-term future addition; not in this spec).
 - Audition / preview-on-hover (also future addition).
 - Per-mix snapshot of master volume.
@@ -45,7 +45,7 @@ Two tabs at the top of the page:
 │ ‹  SOUNDS                  [Save mix]     │  ← page header (preserved)
 │    3 in current mix                        │
 ├───────────────────────────────────────────┤
-│       Sounds        │       Mixes          │  ← tab bar
+│   Sounds   │   Mixes   │   Soundtracks    │  ← tab bar
 ├───────────────────────────────────────────┤
 │ <tab-specific body>                        │
 └───────────────────────────────────────────┘
@@ -138,7 +138,7 @@ Pills serve as a **visible table of contents and a scroll-jump shortcut** — no
 │ ‹  SOUNDS                  [Save mix]     │
 │    3 in current mix                        │
 ├───────────────────────────────────────────┤
-│       Sounds        │       Mixes*         │  *active
+│   Sounds   │   Mixes*  │   Soundtracks    │  *active
 ├───────────────────────────────────────────┤
 │  MY MIXES   3                              │  ← section header w/ count
 │  ┌─────────────────────────────────────┐  │
@@ -245,7 +245,7 @@ The chevron back-button is hidden during save mode. To leave Sounds without savi
 ├───────────────────────────────────────────┤
 │ SAVING  🌧 Rain · ⛈ Thunder · 🌬 Wind    │  ← preview row
 ├───────────────────────────────────────────┤
-│       Sounds        │       Mixes          │
+│   Sounds   │   Mixes   │   Soundtracks    │
 │        ⋮                                   │
 └───────────────────────────────────────────┘
 ```
@@ -352,7 +352,7 @@ These are deliberately deferred. The architecture should not preclude them.
 - **Mix vibe icon.** Saved mixes could pick from a small set of mood glyphs (☕ moon flame leaf) for faster visual recognition independent of the track icon stack.
 - **Recently played row.** Auto-pin the last 1–2 mixes the user loaded above "MY MIXES."
 - **Mix import/export.** JSON export to share a mix with another user.
-- **Internet soundtracks (YouTube/Spotify).** Likely a separate page entirely.
+- **Internet soundtracks (YouTube/Spotify)** — implemented as a third tab on this page; see `docs/superpowers/specs/2026-04-27-soundtracks-design.md`.
 - **Reordering custom mixes.** Drag-to-reorder. Out of scope per the lifecycle decision (sort is recency-only).
 - **Renaming custom mixes.** Out of scope per the lifecycle decision (re-save under same name + Overwrite is the workaround).
 

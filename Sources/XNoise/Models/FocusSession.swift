@@ -17,6 +17,11 @@ final class FocusSession: ObservableObject {
     let settings: FocusSettings
     private var timer: Timer?
 
+    /// Fired whenever the timer transitions phase (auto-expiry or `skip()`). Not fired
+    /// by `reset()` (treated as a discrete user action, not a phase transition).
+    /// AppModel uses this to mirror pause/resume to the active audio source.
+    var onPhaseChange: ((SessionPhase) -> Void)?
+
     init(settings: FocusSettings) {
         self.settings = settings
         self.remainingSec = settings.focusMin * 60
@@ -99,6 +104,7 @@ final class FocusSession: ObservableObject {
             phase = .focus
         }
         remainingSec = totalSec
+        onPhaseChange?(phase)
     }
 }
 

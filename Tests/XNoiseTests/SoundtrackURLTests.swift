@@ -19,6 +19,13 @@ final class SoundtrackURLTests: XCTestCase {
                                          humanLabel: "YouTube video")))
     }
 
+    func testYouTubeShortURLWithSiTracker() {
+        let r = SoundtrackURL.parse("https://youtu.be/jfKfPfyJRdk?si=sometoken")
+        XCTAssertEqual(r, .success(.init(kind: .youtube,
+                                         embedURL: "https://www.youtube.com/embed/jfKfPfyJRdk?enablejsapi=1",
+                                         humanLabel: "YouTube video")))
+    }
+
     func testYouTubePlaylistURL() {
         let r = SoundtrackURL.parse("https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf")
         XCTAssertEqual(r, .success(.init(kind: .youtube,

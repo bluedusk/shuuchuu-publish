@@ -57,13 +57,13 @@ extension SoundtrackURL {
             // /<type>/<id>[?...]
             let parts = url.path.split(separator: "/").map(String.init)
             guard parts.count >= 2 else { return .failure(.invalidURL) }
-            let type = parts[0]
+            let contentType = parts[0]
             let id = parts[1]
             let allowed: Set<String> = ["track", "album", "playlist", "episode", "show"]
-            guard allowed.contains(type), !id.isEmpty else { return .failure(.invalidURL) }
+            guard allowed.contains(contentType), !id.isEmpty else { return .failure(.invalidURL) }
             return .success(.init(kind: .spotify,
-                                  embedURL: "https://open.spotify.com/embed/\(type)/\(id)",
-                                  humanLabel: "Spotify \(type)"))
+                                  embedURL: "https://open.spotify.com/embed/\(contentType)/\(id)",
+                                  humanLabel: "Spotify \(contentType)"))
         }
 
         return .failure(.unsupportedHost)

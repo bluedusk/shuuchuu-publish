@@ -1,11 +1,10 @@
 import SwiftUI
 
-/// Section descriptor for the jump-pill nav. The id must match the `.id(...)` set on the
-/// section header in the scroll body so `ScrollViewReader.scrollTo` can locate it.
-struct JumpSection: Identifiable, Equatable {
+/// One pill in the filter row.
+struct FilterPill: Identifiable, Equatable {
     let id: String
     let title: String
-    /// If true, this pill is rendered in warm gold (used for ★ Favorites).
+    /// If true, render in warm gold (used for ★ Favorites).
     let isStar: Bool
 
     init(id: String, title: String, isStar: Bool = false) {
@@ -15,21 +14,20 @@ struct JumpSection: Identifiable, Equatable {
     }
 }
 
-/// Wrapping pill row pinned beneath the tab bar on the Sounds tab. Each pill is a tap target
-/// that scroll-jumps to the corresponding section. The pill matching `currentSectionId`
-/// is highlighted in the accent color.
-struct JumpPills: View {
-    let sections: [JumpSection]
-    let currentSectionId: String?
-    let onTap: (String) -> Void
+/// Multi-select pill row for filtering the Sounds grid. Tap a pill to toggle it.
+/// `selected` is the set of currently active pill ids; `onToggle` flips one.
+struct FilterPills: View {
+    let pills: [FilterPill]
+    let selected: Set<String>
+    let onToggle: (String) -> Void
 
     @EnvironmentObject var design: DesignSettings
 
     var body: some View {
         HStack(spacing: 0) {
             FlowLayout(spacing: 4) {
-                ForEach(sections) { section in
-                    pill(section)
+                ForEach(pills) { pill in
+                    pillView(pill)
                 }
             }
             Spacer(minLength: 0)
@@ -42,23 +40,22 @@ struct JumpPills: View {
         .overlay(Divider().opacity(0.3), alignment: .bottom)
     }
 
-    private func pill(_ section: JumpSection) -> some View {
-        let isCurrent = section.id == currentSectionId
-        let label = section.isStar ? "★" : section.title
-        return Button { onTap(section.id) } label: {
+    private func pillView(_ pill: FilterPill) -> some View {
+        let isOn = selected.contains(pill.id)
+        let label = pill.isStar ? "★" : pill.title
+        return Button { onToggle(pill.id) } label: {
             Text(label)
                 .font(.system(size: 10, weight: .regular))
                 .kerning(0.1)
-                .padding(.horizontal, section.isStar ? 7 : 9)
+                .padding(.horizontal, pill.isStar ? 7 : 9)
                 .padding(.vertical, 4)
-                .foregroundStyle(pillForeground(section: section, isCurrent: isCurrent))
+                .foregroundStyle(foreground(pill: pill, isOn: isOn))
                 .background(
-                    Capsule().fill(isCurrent ? design.accent.opacity(0.18) : Color.clear)
+                    Capsule().fill(isOn ? design.accent.opacity(0.18) : Color.clear)
                 )
                 .overlay(
                     Capsule().strokeBorder(
-                        isCurrent ? design.accent.opacity(0.45)
-                                  : Color.white.opacity(0.08),
+                        isOn ? design.accent.opacity(0.45) : Color.white.opacity(0.08),
                         lineWidth: 1
                     )
                 )
@@ -66,15 +63,14 @@ struct JumpPills: View {
         .buttonStyle(.plain)
     }
 
-    private func pillForeground(section: JumpSection, isCurrent: Bool) -> Color {
-        if isCurrent { return .white }
-        if section.isStar { return Color(red: 1.0, green: 0.83, blue: 0.42) }
+    private func foreground(pill: FilterPill, isOn: Bool) -> Color {
+        if isOn { return .white }
+        if pill.isStar { return Color(red: 1.0, green: 0.83, blue: 0.42) }
         return Color.white.opacity(0.55)
     }
 }
 
 /// Minimal flow layout — wraps children to multiple rows when they exceed the proposed width.
-/// macOS 13+; we target 26 so this is fine.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 4
 

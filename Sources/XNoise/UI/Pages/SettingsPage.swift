@@ -260,9 +260,11 @@ struct SettingsPage: View {
                 let isOn = selection.wrappedValue == opt
                 Button { selection.wrappedValue = opt } label: {
                     Text(label(opt))
-                        .font(.system(size: 11, weight: isOn ? .semibold : .regular))
+                        .font(.system(size: 10, weight: isOn ? .semibold : .regular))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .foregroundStyle(isOn ? Color.primary : .secondary)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 6)
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity)
                         .background(

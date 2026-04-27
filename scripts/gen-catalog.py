@@ -12,33 +12,53 @@ import argparse
 import json
 import os
 import sys
+from typing import Optional
 
-# Momentum-style taxonomy — track id (matches filename stem) per category.
+# Moodist-style taxonomy — each track in exactly one category.
 CATEGORIES = [
+    ("rain", "Rain", [
+        "rain", "rain_on_surface", "loud_rain", "thunder",
+    ]),
+    ("nature", "Nature", [
+        "wind", "fire", "stream",
+        "ocean", "ocean_waves", "ocean_boat", "ocean_bubbles", "ocean_splash",
+    ]),
+    ("animals", "Animals", [
+        "birds", "ocean_birds", "seagulls", "crickets", "insects",
+    ]),
+    ("places", "Places", [
+        "cafe", "coffee_maker", "co_workers",
+    ]),
+    ("transport", "Transport", [
+        "airplane_cabin", "train_tracks",
+    ]),
+    ("things", "Things", [
+        "mechanical_keyboard", "copier", "chimes", "air_conditioner",
+    ]),
     ("noise", "Noise", [
         "white_noise", "pink_noise", "brown_noise", "green_noise", "fluorescent_hum",
     ]),
-    ("soundscapes", "Soundscapes", [
-        "rain", "rain_on_surface", "loud_rain", "thunder", "wind",
-        "ocean", "ocean_waves", "ocean_birds", "ocean_boat",
-        "ocean_bubbles", "ocean_splash", "seagulls",
-        "birds", "crickets", "insects", "fire", "stream",
-    ]),
-    ("ambient", "Ambient", [
-        "cafe", "coffee_maker", "mechanical_keyboard", "copier",
-        "airplane_cabin", "air_conditioner", "co_workers", "chimes", "train_tracks",
-    ]),
-    ("binaural", "Binaural", [
-        "binaural_music",
-    ]),
-    ("speech-blocker", "Speech Blocker", [
-        "speech_blocker",
+    ("focus", "Focus", [
+        "binaural_music", "speech_blocker",
     ]),
 ]
 
 
 def pretty_name(track_id: str) -> str:
     return track_id.replace("_", " ").title()
+
+
+AUDIO_EXTS = (".mp3", ".wav", ".m4a", ".caf", ".aif", ".aiff", ".flac")
+
+
+def find_audio_file(sounds_dir: str, track_id: str) -> Optional[str]:
+    """Return the filename for a track id, probing supported audio extensions in
+    preference order (mp3 first since most of the catalog is MP3, then lossless)."""
+    for ext in AUDIO_EXTS:
+        fname = f"{track_id}{ext}"
+        if os.path.isfile(os.path.join(sounds_dir, fname)):
+            return fname
+    return None
 
 
 def build(sounds_dir: str) -> dict:
@@ -48,10 +68,9 @@ def build(sounds_dir: str) -> dict:
     for cat_id, cat_name, track_ids in CATEGORIES:
         tracks = []
         for tid in track_ids:
-            fname = f"{tid}.mp3"
-            fpath = os.path.join(sounds_dir, fname)
-            if not os.path.isfile(fpath):
-                print(f"warn: missing {fpath}", file=sys.stderr)
+            fname = find_audio_file(sounds_dir, tid)
+            if fname is None:
+                print(f"warn: missing audio for {tid} (any of {AUDIO_EXTS})", file=sys.stderr)
                 continue
             seen.add(fname)
             tracks.append({
@@ -63,7 +82,7 @@ def build(sounds_dir: str) -> dict:
         if tracks:
             categories.append({"id": cat_id, "name": cat_name, "tracks": tracks})
 
-    on_disk = {f for f in os.listdir(sounds_dir) if f.endswith(".mp3")}
+    on_disk = {f for f in os.listdir(sounds_dir) if f.lower().endswith(AUDIO_EXTS)}
     unplaced = on_disk - seen
     if unplaced:
         print(f"warn: unplaced files in sounds/: {sorted(unplaced)}", file=sys.stderr)

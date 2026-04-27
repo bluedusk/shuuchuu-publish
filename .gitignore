@@ -6,8 +6,9 @@ xcuserdata/
 *.xcuserstate
 default.profraw
 
-# local dev content — sound files are not part of the repo
+# local dev content — sound files are not part of the repo (served from Cloudflare R2)
 sounds/
+sounds-staging/
 catalog.json
 
 # brainstorming visual companion cache (HTML mockups, server state)

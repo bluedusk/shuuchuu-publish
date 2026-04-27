@@ -7,7 +7,7 @@ enum AppPage: String, CaseIterable {
 }
 
 /// Which tab of the Sounds page is active.
-enum SoundsTab: String, Equatable { case sounds, mixes }
+enum SoundsTab: String, Equatable { case sounds, mixes, soundtracks }
 
 /// State machine for the inline save-mix flow.
 enum SaveMode: Equatable {

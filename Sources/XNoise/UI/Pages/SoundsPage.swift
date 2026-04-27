@@ -15,8 +15,9 @@ struct SoundsPage: View {
             }
             tabBar
             switch model.soundsTab {
-            case .sounds: SoundsBrowseView()
-            case .mixes:  MixesView()
+            case .sounds:       SoundsBrowseView()
+            case .mixes:        MixesView()
+            case .soundtracks:  SoundtracksTab()
             }
         }
     }
@@ -29,7 +30,7 @@ struct SoundsPage: View {
                     .font(.system(size: 12, weight: .semibold))
                     .kerning(0.72)
                     .xnText(.secondary)
-                Text("\(model.state.count) in current mix")
+                Text(headerSubtitle)
                     .font(.system(size: 12))
                     .xnText(.primary)
             }
@@ -58,18 +59,26 @@ struct SoundsPage: View {
                 )
         }
         .buttonStyle(.plain)
-        .disabled(model.state.isEmpty)
-        .opacity(model.state.isEmpty ? 0.4 : 1)
+        .disabled(model.state.isEmpty || model.mode.isSoundtrack)
+        .opacity(model.state.isEmpty || model.mode.isSoundtrack ? 0.4 : 1)
     }
 
     private var tabBar: some View {
         HStack(spacing: 0) {
             tabItem(.sounds, label: "Sounds")
             tabItem(.mixes, label: "Mixes")
+            tabItem(.soundtracks, label: "Soundtracks")
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .overlay(Divider().opacity(0.3), alignment: .bottom)
+    }
+
+    private var headerSubtitle: String {
+        switch model.mode {
+        case .soundtrack:       return "playing soundtrack"
+        case .mix, .idle:       return "\(model.state.count) in current mix"
+        }
     }
 
     private func tabItem(_ tab: SoundsTab, label: String) -> some View {

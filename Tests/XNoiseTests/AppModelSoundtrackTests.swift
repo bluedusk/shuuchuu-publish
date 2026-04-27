@@ -344,4 +344,53 @@ final class AppModelSoundtrackTests: XCTestCase {
         XCTAssertEqual(model.mode, .idle)
         XCTAssertTrue(mock.calls.isEmpty)
     }
+
+    // MARK: - Persistence
+
+    func testModePersistsAcrossAppModelInstances() {
+        let d = Self.ephemeralDefaults()
+        // First launch: activate a soundtrack.
+        var savedId = UUID()
+        do {
+            let (model, _) = makeModel(defaults: d)
+            let entry = model.soundtracksLibrary.add(parsed: parsedURL("https://youtu.be/x"))
+            savedId = entry.id
+            model.activateSoundtrack(id: entry.id)
+            XCTAssertEqual(model.mode, .soundtrack(entry.id))
+        }
+        // Second launch: same defaults, fresh AppModel.
+        let (reloaded, mock) = makeModel(defaults: d)
+        XCTAssertEqual(reloaded.mode, .soundtrack(savedId))
+        // Per spec §7: do NOT autoplay on launch.
+        XCTAssertTrue(mock.calls.isEmpty)
+    }
+
+    func testModeFallsBackToIdleIfPersistedSoundtrackMissing() {
+        let d = Self.ephemeralDefaults()
+        // Hand-write a stale mode pointing at a UUID that's not in the library.
+        let stale = try! JSONEncoder().encode(AudioMode.soundtrack(UUID()))
+        d.set(stale, forKey: "x-noise.audioMode")
+
+        let (model, _) = makeModel(defaults: d)
+        XCTAssertEqual(model.mode, .idle)
+    }
+
+    // MARK: - Carry-over from Task 5 review: explicit add-while-soundtrack-active test
+
+    func testAddSoundtrackFromSoundtrackModeActivatesNewEntry() {
+        let (model, mock) = makeModel()
+        // First soundtrack — activates because we start in .idle.
+        guard case .success(let first) = model.addSoundtrack(rawURL: "https://youtu.be/first") else {
+            XCTFail("first add should succeed"); return
+        }
+        XCTAssertEqual(model.mode, .soundtrack(first.id))
+        mock.calls.removeAll()
+
+        // Second soundtrack while in .soundtrack(first) — auto-activates the new one.
+        guard case .success(let second) = model.addSoundtrack(rawURL: "https://youtu.be/second") else {
+            XCTFail("second add should succeed"); return
+        }
+        XCTAssertEqual(model.mode, .soundtrack(second.id))
+        XCTAssertEqual(mock.calls, [.load(id: second.id, autoplay: true)])
+    }
 }

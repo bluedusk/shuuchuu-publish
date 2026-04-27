@@ -59,5 +59,6 @@ struct PopoverView: View {
         .environmentObject(model.focusSettings)
         .environmentObject(model.favorites)
         .environmentObject(model.savedMixes)
+        .environmentObject(model.soundtracksLibrary)
     }
 }

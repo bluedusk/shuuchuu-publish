@@ -97,6 +97,17 @@ final class AppModel: ObservableObject {
             self?.soundtracksLibrary.setTitle(id: id, title: title)
         }
 
+        // Auto break/focus transitions mirror to whichever audio source is active.
+        // Pause when leaving focus; resume when entering focus. (The user's manual
+        // ring-tap takes a separate path — see FocusPage.ringTap.)
+        session.onPhaseChange = { [weak self] phase in
+            guard let self = self else { return }
+            switch phase {
+            case .focus:                        self.pauseActiveSource(false)
+            case .shortBreak, .longBreak:       self.pauseActiveSource(true)
+            }
+        }
+
         // Recompute the currently-loaded match whenever the active mix or the saved-mix
         // list changes. Per spec §11 — avoids per-frame allocations from view bodies.
         state.$tracks

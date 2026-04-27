@@ -304,4 +304,44 @@ final class AppModelSoundtrackTests: XCTestCase {
         model.pauseActiveSource(false)
         XCTAssertTrue(model.state.anyPlaying)
     }
+
+    // MARK: - FocusSession mirror
+
+    func testFocusPhaseTransitionMirrorsToSoundtrack() {
+        let (model, mock) = makeModel()
+        let entry = model.soundtracksLibrary.add(parsed: parsedURL("https://youtu.be/x"))
+        model.activateSoundtrack(id: entry.id)
+        mock.calls.removeAll()
+
+        // Skip from .focus → .shortBreak. Soundtrack should pause.
+        model.session.skip()
+        XCTAssertEqual(mock.calls, [.setPaused(true)])
+        XCTAssertTrue(model.activeSourcePaused)
+
+        mock.calls.removeAll()
+        // Skip from .shortBreak → .focus. Soundtrack should resume.
+        model.session.skip()
+        XCTAssertEqual(mock.calls, [.setPaused(false)])
+        XCTAssertFalse(model.activeSourcePaused)
+    }
+
+    func testFocusPhaseTransitionMirrorsToMix() {
+        let (model, _) = makeModel()
+        let rain = Track(id: "rain", name: "Rain", kind: .procedural(.white), artworkUrl: nil)
+        model.toggleTrack(rain)
+        XCTAssertTrue(model.state.anyPlaying)
+
+        model.session.skip()                     // → break, mix should pause
+        XCTAssertFalse(model.state.anyPlaying)
+
+        model.session.skip()                     // → focus, mix should resume
+        XCTAssertTrue(model.state.anyPlaying)
+    }
+
+    func testFocusPhaseTransitionInIdleIsNoOp() {
+        let (model, mock) = makeModel()
+        model.session.skip()
+        XCTAssertEqual(model.mode, .idle)
+        XCTAssertTrue(mock.calls.isEmpty)
+    }
 }

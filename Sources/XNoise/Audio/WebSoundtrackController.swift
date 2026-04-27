@@ -2,6 +2,16 @@ import AppKit
 import WebKit
 import Foundation
 
+private final class BridgeMessageProxy: NSObject, WKScriptMessageHandler {
+    weak var owner: WebSoundtrackController?
+    func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let dict = message.body as? [String: Any] else { return }
+        Task { @MainActor [weak self] in
+            self?.owner?.handleBridgeMessage(dict)
+        }
+    }
+}
+
 /// Hidden long-lived host for a single WKWebView. Survives popover dismissal so
 /// audio continues across menubar close/reopen. Reuses one web view across
 /// activations — cookie persistence (default data store) keeps the user's Spotify
@@ -15,6 +25,9 @@ final class WebSoundtrackController: NSObject, WebSoundtrackControlling {
     private let window: NSWindow
     private let webView: WKWebView
     private var loadedSoundtrack: WebSoundtrack?
+    private var bridgeReady: Bool = false
+    private var pendingEmbedURL: String?
+    private var pendingAutoplay: Bool = false
 
     override init() {
         // Off-screen 1×1 window — invisible, retained for the app lifetime.
@@ -35,10 +48,15 @@ final class WebSoundtrackController: NSObject, WebSoundtrackControlling {
         config.websiteDataStore = .default()         // persistent cookies
         config.mediaTypesRequiringUserActionForPlayback = []   // bridge plays without gesture
 
+        let proxy = BridgeMessageProxy()
+        config.userContentController.add(proxy, name: "xnoise")
+
         webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
 
         super.init()
+
+        proxy.owner = self
 
         let host = NSView(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
         host.wantsLayer = true
@@ -56,23 +74,99 @@ final class WebSoundtrackController: NSObject, WebSoundtrackControlling {
     // MARK: - WebSoundtrackControlling
 
     func load(_ soundtrack: WebSoundtrack, autoplay: Bool) {
+        let bridgeFilename: String
+        switch soundtrack.kind {
+        case .youtube: bridgeFilename = "youtube-bridge"
+        case .spotify: bridgeFilename = "spotify-bridge"
+        }
+
+        // Same provider already loaded → just swap the embed URL via the bridge.
+        if loadedSoundtrack?.kind == soundtrack.kind, bridgeReady {
+            loadedSoundtrack = soundtrack
+            pendingEmbedURL = nil
+            evaluate("window.bridge.load(\(jsString(soundtrack.url)))")
+            evaluate("window.bridge.setVolume(\(soundtrack.volume))")
+            if autoplay { evaluate("window.bridge.play()") }
+            return
+        }
+
+        // Different provider (or first load) — load the bridge HTML; the embed URL
+        // is replayed onto the bridge in `handleBridgeMessage(...)` when `ready` arrives.
         loadedSoundtrack = soundtrack
-        // Bridge HTML loading lands in Task 13. For now load `about:blank` so the
-        // scaffold is observable and harmless.
-        webView.load(URLRequest(url: URL(string: "about:blank")!))
+        bridgeReady = false
+        pendingEmbedURL = soundtrack.url
+        pendingAutoplay = autoplay
+        guard let url = Bundle.module.url(forResource: bridgeFilename, withExtension: "html") else {
+            assertionFailure("\(bridgeFilename).html missing from bundle")
+            return
+        }
+        webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
     }
 
     func setPaused(_ paused: Bool) {
-        // JS bridge command added in Task 13.
+        guard bridgeReady else { return }
+        evaluate(paused ? "window.bridge.pause()" : "window.bridge.play()")
     }
 
     func setVolume(_ volume: Double) {
-        // JS bridge command added in Task 13.
+        guard bridgeReady else { return }
+        evaluate("window.bridge.setVolume(\(volume))")
     }
 
     func unload() {
         loadedSoundtrack = nil
+        bridgeReady = false
+        pendingEmbedURL = nil
+        pendingAutoplay = false
         webView.load(URLRequest(url: URL(string: "about:blank")!))
+    }
+
+    // MARK: - Bridge message handling
+
+    func handleBridgeMessage(_ dict: [String: Any]) {
+        guard let type = dict["type"] as? String else { return }
+        switch type {
+        case "ready":
+            bridgeReady = true
+            if let url = pendingEmbedURL {
+                evaluate("window.bridge.load(\(jsString(url)))")
+                pendingEmbedURL = nil
+            }
+            if let s = loadedSoundtrack {
+                evaluate("window.bridge.setVolume(\(s.volume))")
+                if pendingAutoplay {
+                    evaluate("window.bridge.play()")
+                    pendingAutoplay = false
+                }
+            }
+        case "titleChanged":
+            if let title = dict["title"] as? String, let id = loadedSoundtrack?.id {
+                onTitleChange?(id, title)
+            }
+        case "signInRequired":
+            if let id = loadedSoundtrack?.id {
+                onSignInRequired?(id)
+            }
+        case "stateChange", "error":
+            // No app-level reaction in v1 beyond observability.
+            break
+        default:
+            break
+        }
+    }
+
+    // MARK: - JS helpers
+
+    private func evaluate(_ js: String) {
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    private func jsString(_ s: String) -> String {
+        let escaped = s
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        return "\"\(escaped)\""
     }
 
     // MARK: - Expand-row reveal support (used by Task 17)

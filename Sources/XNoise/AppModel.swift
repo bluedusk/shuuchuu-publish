@@ -46,6 +46,9 @@ final class AppModel: ObservableObject {
     @Published var saveMode: SaveMode = .inactive
     @Published private(set) var currentlyLoadedMixId: AnyHashable?
     @Published var mode: AudioMode = .idle { didSet { persistMode() } }
+    /// Tracks whether the active soundtrack is currently paused. Mirrors the bridge.
+    /// In mix mode this property is unused — `state.anyPlaying` is the source of truth.
+    @Published private(set) var soundtrackPaused: Bool = true
 
     init(
         catalog: Catalog,
@@ -120,6 +123,16 @@ final class AppModel: ObservableObject {
 
     func findTrack(id: String) -> Track? { trackIndex[id] }
 
+    /// True iff the active source (mix or soundtrack) is currently inaudible.
+    /// `.idle` returns `true` (nothing is playing).
+    var activeSourcePaused: Bool {
+        switch mode {
+        case .idle:                return true
+        case .mix:                 return !state.anyPlaying
+        case .soundtrack:          return soundtrackPaused
+        }
+    }
+
     /// All tracks flattened across catalog categories.
     var allTracks: [(track: Track, categoryId: String)] {
         categories.flatMap { cat in
@@ -134,6 +147,7 @@ final class AppModel: ObservableObject {
     private func enterMixMode() {
         if case .soundtrack = mode {
             soundtrackController.setPaused(true)
+            soundtrackPaused = true
         }
         if mode != .mix {
             mode = .mix
@@ -167,10 +181,22 @@ final class AppModel: ObservableObject {
         mixer.reconcileNow()
     }
 
+    /// Pause or resume whichever source is active. No-op in `.idle`.
+    func pauseActiveSource(_ paused: Bool) {
+        switch mode {
+        case .idle:
+            return
+        case .mix:
+            state.setAllPaused(paused)
+            mixer.reconcileNow()
+        case .soundtrack:
+            soundtrackController.setPaused(paused)
+            soundtrackPaused = paused
+        }
+    }
+
     func togglePlayAll() {
-        // If anything is playing, pause everything; else play everything.
-        state.setAllPaused(state.anyPlaying)
-        mixer.reconcileNow()
+        pauseActiveSource(!activeSourcePaused)
     }
 
     func applyPreset(_ preset: Preset) {
@@ -305,11 +331,13 @@ final class AppModel: ObservableObject {
 
         mode = .soundtrack(id)
         soundtrackController.load(entry, autoplay: true)
+        soundtrackPaused = false
     }
 
     func deactivateSoundtrack() {
         guard case .soundtrack = mode else { return }
         soundtrackController.setPaused(true)
+        soundtrackPaused = true
         mode = .idle
     }
 

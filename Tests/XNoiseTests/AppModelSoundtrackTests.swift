@@ -256,4 +256,52 @@ final class AppModelSoundtrackTests: XCTestCase {
         XCTAssertEqual(model.soundtracksLibrary.entry(id: other.id)?.volume ?? 0, 0.7, accuracy: 0.001)
         XCTAssertTrue(mock.calls.isEmpty)
     }
+
+    // MARK: - togglePlayAll + pauseActiveSource
+
+    func testTogglePlayAllInSoundtrackModePauses() {
+        let (model, mock) = makeModel()
+        let entry = model.soundtracksLibrary.add(parsed: parsedURL("https://youtu.be/x"))
+        model.activateSoundtrack(id: entry.id)
+        XCTAssertFalse(model.activeSourcePaused)
+        mock.calls.removeAll()
+
+        model.togglePlayAll()
+
+        XCTAssertTrue(model.activeSourcePaused)
+        XCTAssertEqual(mock.calls, [.setPaused(true)])
+    }
+
+    func testTogglePlayAllInSoundtrackModeResumes() {
+        let (model, mock) = makeModel()
+        let entry = model.soundtracksLibrary.add(parsed: parsedURL("https://youtu.be/x"))
+        model.activateSoundtrack(id: entry.id)
+        model.togglePlayAll()                  // pause
+        mock.calls.removeAll()
+
+        model.togglePlayAll()                  // resume
+
+        XCTAssertFalse(model.activeSourcePaused)
+        XCTAssertEqual(mock.calls, [.setPaused(false)])
+    }
+
+    func testTogglePlayAllInIdleIsNoOp() {
+        let (model, mock) = makeModel()
+        model.togglePlayAll()
+        XCTAssertEqual(model.mode, .idle)
+        XCTAssertTrue(mock.calls.isEmpty)
+    }
+
+    func testPauseActiveSourceInMixMutesAllTracks() {
+        let (model, _) = makeModel()
+        let rain = Track(id: "rain", name: "Rain", kind: .procedural(.white), artworkUrl: nil)
+        model.toggleTrack(rain)
+        XCTAssertTrue(model.state.anyPlaying)
+
+        model.pauseActiveSource(true)
+        XCTAssertFalse(model.state.anyPlaying)
+
+        model.pauseActiveSource(false)
+        XCTAssertTrue(model.state.anyPlaying)
+    }
 }

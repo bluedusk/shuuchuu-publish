@@ -17,7 +17,7 @@ struct FocusPage: View {
             header
             ringBlock
             Hairline().padding(.horizontal, 22).padding(.top, 4).padding(.bottom, 10)
-            mixSection
+            bottomRegion
             Spacer(minLength: 0)
         }
         .padding(.bottom, 6)
@@ -109,9 +109,7 @@ struct FocusPage: View {
 
     private func ringTap() {
         session.toggle()
-        // Mirror to audio: starting the timer plays everything; pausing pauses everything.
-        state.setAllPaused(!session.isRunning)
-        model.mixer.reconcileNow()
+        model.pauseActiveSource(!session.isRunning)
     }
 
     private var timeString: String {
@@ -148,15 +146,36 @@ struct FocusPage: View {
         }
     }
 
+    @ViewBuilder
+    private var bottomRegion: some View {
+        switch model.mode {
+        case .soundtrack(let id):
+            if let entry = model.soundtracksLibrary.entry(id: id) {
+                SoundtrackPanel(
+                    soundtrack: entry,
+                    paused: model.activeSourcePaused,
+                    canSwitchToMix: !model.state.isEmpty,
+                    onTogglePause: { model.togglePlayAll() },
+                    onVolumeChange: { v in model.setSoundtrackVolume(id: id, volume: v) },
+                    onSwitchToMix: { model.switchToMix() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+            }
+        case .mix, .idle:
+            mixSection
+        }
+    }
+
     private var playAllButton: some View {
-        let anyPlaying = state.anyPlaying
+        let anyPlaying = !model.activeSourcePaused
         return minimalIcon(
             systemName: anyPlaying ? "pause.fill" : "play.fill",
             size: 13,
             hover: $playHover,
-            disabled: state.isEmpty
+            disabled: model.mode == .idle && state.isEmpty
         ) { model.togglePlayAll() }
-        .help(anyPlaying ? "Pause all" : "Play all")
+        .help(anyPlaying ? "Pause" : "Play")
     }
 
     private var clearAllButton: some View {

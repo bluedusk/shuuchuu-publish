@@ -1,13 +1,18 @@
 import SwiftUI
+import WebKit
+import AppKit
 
 /// Row for a single soundtrack on the Soundtracks tab. Shows logo, title, sub-line,
 /// active chip if this is the active soundtrack, and trailing `⌃`/`⋯` controls.
 ///
-/// The expand-row reveal (Task 17) will add an inline iframe container; for v1
-/// we expose the chevron as a callback only.
+/// When `isExpanded` is true (Task 17), the row embeds the live WKWebView from the
+/// `WebSoundtrackController` inline below the collapsed header row.
 struct SoundtrackChipRow: View {
     let soundtrack: WebSoundtrack
     let isActive: Bool
+    let isExpanded: Bool
+    let controller: WebSoundtrackController
+    let pulseChevron: Bool
     let onTap: () -> Void
     let onExpandToggle: () -> Void
     let onDelete: () -> Void
@@ -16,6 +21,46 @@ struct SoundtrackChipRow: View {
     @State private var hovered = false
 
     var body: some View {
+        VStack(spacing: 0) {
+            collapsedRow
+
+            if isExpanded {
+                LiveSoundtrackEmbed(controller: controller)
+                    .frame(height: 220)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+                    .onDisappear { controller.reclaimWebView() }
+
+                HStack {
+                    Spacer()
+                    Button("Done", action: onExpandToggle)
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.65))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(rowBackground)
+        .overlay(rowBorder)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(Rectangle())
+        .onHover { hovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: isActive)
+        .animation(.easeOut(duration: 0.20), value: isExpanded)
+    }
+
+    private var collapsedRow: some View {
         HStack(spacing: 10) {
             providerGlyph
 
@@ -37,14 +82,21 @@ struct SoundtrackChipRow: View {
 
             if isActive {
                 Button(action: onExpandToggle) {
-                    Image(systemName: "chevron.up")
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(pulseChevron ? design.accent : Color.secondary)
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
+                        .scaleEffect(pulseChevron ? 1.06 : 1.0)
+                        .animation(
+                            pulseChevron
+                              ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true)
+                              : .default,
+                            value: pulseChevron
+                        )
                 }
                 .buttonStyle(.plain)
-                .help("Reveal player")
+                .help(isExpanded ? "Hide player" : "Reveal player")
             }
 
             Menu {
@@ -60,15 +112,7 @@ struct SoundtrackChipRow: View {
             .menuIndicator(.hidden)
             .frame(width: 22, height: 22)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(rowBackground)
-        .overlay(rowBorder)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .contentShape(Rectangle())
-        .onHover { hovered = $0 }
         .onTapGesture(perform: onTap)
-        .animation(.easeOut(duration: 0.15), value: isActive)
     }
 
     private var displayTitle: String {
@@ -118,4 +162,32 @@ struct SoundtrackChipRow: View {
                 lineWidth: isActive ? 1.5 : 1
             )
     }
+}
+
+/// SwiftUI host for the live WKWebView owned by `WebSoundtrackController`. When
+/// this representable appears, it pulls the web view out of the hidden window into
+/// a container view; on disappear (parent), the row calls `controller.reclaimWebView()`.
+struct LiveSoundtrackEmbed: NSViewRepresentable {
+    let controller: WebSoundtrackController
+
+    func makeNSView(context: Context) -> NSView {
+        let host = NSView()
+        host.wantsLayer = true
+        host.layer?.cornerRadius = 8
+        host.layer?.masksToBounds = true
+
+        let web = controller.hostedWebView
+        web.removeFromSuperview()
+        web.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(web)
+        NSLayoutConstraint.activate([
+            web.topAnchor.constraint(equalTo: host.topAnchor),
+            web.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            web.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            web.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+        ])
+        return host
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

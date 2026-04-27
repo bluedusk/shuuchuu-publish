@@ -49,6 +49,7 @@ final class AppModel: ObservableObject {
     /// Tracks whether the active soundtrack is currently paused. Mirrors the bridge.
     /// In mix mode this property is unused — `state.anyPlaying` is the source of truth.
     @Published private(set) var soundtrackPaused: Bool = true
+    @Published var signInRequired: Bool = false
 
     init(
         catalog: Catalog,
@@ -95,6 +96,10 @@ final class AppModel: ObservableObject {
         // Title updates from the bridge persist back to the library.
         soundtrackController.onTitleChange = { [weak self] id, title in
             self?.soundtracksLibrary.setTitle(id: id, title: title)
+        }
+
+        soundtrackController.onSignInRequired = { [weak self] _ in
+            self?.signInRequired = true
         }
 
         // Auto break/focus transitions mirror to whichever audio source is active.

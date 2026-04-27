@@ -32,6 +32,9 @@ struct SoundtracksTab: View {
                             SoundtrackChipRow(
                                 soundtrack: entry,
                                 isActive: model.mode == .soundtrack(entry.id),
+                                isExpanded: expandedRowId == entry.id,
+                                controller: concreteController,
+                                pulseChevron: model.signInRequired && model.mode == .soundtrack(entry.id),
                                 onTap: { tapRow(entry) },
                                 onExpandToggle: { toggleExpand(entry) },
                                 onDelete: { model.removeSoundtrack(id: entry.id) }
@@ -143,6 +146,16 @@ struct SoundtracksTab: View {
             expandedRowId = nil
         } else {
             expandedRowId = entry.id
+            model.signInRequired = false
         }
+    }
+
+    private var concreteController: WebSoundtrackController {
+        // Cast safe in production: AppModel is constructed with WebSoundtrackController.
+        // SoundtracksTab isn't rendered in tests (tests use the mock; no UI exercised).
+        guard let real = model.soundtrackController as? WebSoundtrackController else {
+            fatalError("SoundtracksTab requires a real WebSoundtrackController")
+        }
+        return real
     }
 }

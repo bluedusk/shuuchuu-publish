@@ -53,8 +53,7 @@ extension AppModel {
         let favorites = Favorites()
         let savedMixes = SavedMixes()
         let soundtracksLibrary = SoundtracksLibrary()
-        // Stub controller — Task 11 replaces this with the real WKWebView-backed one.
-        let soundtrackController = StubSoundtrackController()
+        let soundtrackController = WebSoundtrackController()
         // resolveTrack is captured weakly via a closure so MixingController doesn't
         // pin AppModel — but the closure must be set after AppModel is built. So we
         // build the model first with a temporary controller, then thread the resolver.
@@ -87,15 +86,4 @@ extension AppModel {
 @MainActor
 final class TrackResolverBox {
     var resolve: ((String) -> Track?)?
-}
-
-/// Temporary no-op stub. Replaced by `WebSoundtrackController` in Task 11.
-@MainActor
-final class StubSoundtrackController: WebSoundtrackControlling {
-    var onTitleChange: ((UUID, String) -> Void)?
-    var onSignInRequired: ((UUID) -> Void)?
-    func load(_: WebSoundtrack, autoplay: Bool) {}
-    func setPaused(_: Bool) {}
-    func setVolume(_: Double) {}
-    func unload() {}
 }

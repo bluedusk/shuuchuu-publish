@@ -357,6 +357,17 @@ final class AppModel: ObservableObject {
         mode = .idle
     }
 
+    /// Triggered by the "Switch to mix" link on the Focus page when in `.soundtrack`.
+    /// Pauses the soundtrack, flips to mix mode, and resumes the previously-paused mix.
+    func switchToMix() {
+        guard case .soundtrack = mode else { return }
+        soundtrackController.setPaused(true)
+        soundtrackPaused = true
+        mode = .mix
+        state.setAllPaused(false)
+        mixer.reconcileNow()
+    }
+
     func removeSoundtrack(id: UUID) {
         let wasActive = (mode == .soundtrack(id))
         soundtracksLibrary.remove(id: id)

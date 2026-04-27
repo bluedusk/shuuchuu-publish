@@ -39,11 +39,13 @@ final class AppModel: ObservableObject {
     let savedMixes: SavedMixes
     let soundtracksLibrary: SoundtracksLibrary
     let soundtrackController: WebSoundtrackControlling
+    private let defaults: UserDefaults
 
     @Published var page: AppPage = .focus
     @Published var soundsTab: SoundsTab = .sounds
     @Published var saveMode: SaveMode = .inactive
     @Published private(set) var currentlyLoadedMixId: AnyHashable?
+    @Published var mode: AudioMode = .idle { didSet { persistMode() } }
 
     init(
         catalog: Catalog,
@@ -57,7 +59,8 @@ final class AppModel: ObservableObject {
         prefs: Preferences,
         savedMixes: SavedMixes,
         soundtracksLibrary: SoundtracksLibrary,
-        soundtrackController: WebSoundtrackControlling
+        soundtrackController: WebSoundtrackControlling,
+        defaults: UserDefaults = .standard
     ) {
         self.catalog = catalog
         self.state = state
@@ -71,7 +74,25 @@ final class AppModel: ObservableObject {
         self.savedMixes = savedMixes
         self.soundtracksLibrary = soundtracksLibrary
         self.soundtrackController = soundtrackController
+        self.defaults = defaults
         self.mixer.masterVolume = prefs.volume
+
+        // Restore persisted mode (defaults to .idle if anything is missing).
+        if let data = defaults.data(forKey: "x-noise.audioMode"),
+           let restored = try? JSONDecoder().decode(AudioMode.self, from: data) {
+            // If the persisted mode references a soundtrack id that's no longer in the
+            // library, fall back to .idle (per spec §7).
+            if case .soundtrack(let id) = restored, soundtracksLibrary.entry(id: id) == nil {
+                self.mode = .idle
+            } else {
+                self.mode = restored
+            }
+        }
+
+        // Title updates from the bridge persist back to the library.
+        soundtrackController.onTitleChange = { [weak self] id, title in
+            self?.soundtracksLibrary.setTitle(id: id, title: title)
+        }
 
         // Recompute the currently-loaded match whenever the active mix or the saved-mix
         // list changes. Per spec §11 — avoids per-frame allocations from view bodies.
@@ -231,6 +252,63 @@ final class AppModel: ObservableObject {
     func setMasterVolume(_ v: Float) {
         mixer.masterVolume = v
         prefs.volume = v
+    }
+
+    // MARK: - Soundtracks
+
+    /// Add a soundtrack to the library by parsing the raw URL. From `.idle` or
+    /// `.soundtrack(other)` we auto-activate the new entry (the user just expressed
+    /// intent to play something). From `.mix` we leave the mix alone.
+    func addSoundtrack(rawURL: String) -> Result<WebSoundtrack, AddSoundtrackError> {
+        switch SoundtrackURL.parse(rawURL) {
+        case .failure(let err):
+            return .failure(err)
+        case .success(let parsed):
+            let entry = soundtracksLibrary.add(parsed: parsed)
+            switch mode {
+            case .idle, .soundtrack:
+                activateSoundtrack(id: entry.id)
+            case .mix:
+                break
+            }
+            return .success(entry)
+        }
+    }
+
+    func activateSoundtrack(id: UUID) {
+        guard let entry = soundtracksLibrary.entry(id: id) else { return }
+        if case .soundtrack(let current) = mode, current == id { return }     // idempotent
+
+        // Side effect on the mix is added in Task 6. For now, just transition mode.
+        mode = .soundtrack(id)
+        soundtrackController.load(entry, autoplay: true)
+    }
+
+    func deactivateSoundtrack() {
+        guard case .soundtrack = mode else { return }
+        soundtrackController.setPaused(true)
+        mode = .idle
+    }
+
+    func removeSoundtrack(id: UUID) {
+        let wasActive = (mode == .soundtrack(id))
+        soundtracksLibrary.remove(id: id)
+        if wasActive {
+            soundtrackController.unload()
+            mode = .idle
+        }
+    }
+
+    func setSoundtrackVolume(id: UUID, volume: Double) {
+        soundtracksLibrary.setVolume(id: id, volume: volume)
+        if case .soundtrack(let active) = mode, active == id {
+            soundtrackController.setVolume(volume)
+        }
+    }
+
+    private func persistMode() {
+        guard let data = try? JSONEncoder().encode(mode) else { return }
+        defaults.set(data, forKey: "x-noise.audioMode")
     }
 
     // MARK: - Navigation

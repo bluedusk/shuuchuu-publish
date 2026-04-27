@@ -129,22 +129,36 @@ final class AppModel: ObservableObject {
 
     // MARK: - Mix mutations (route through MixState, then drive reconcile)
 
+    /// Called by every mix-shaped mutation. If we were in soundtrack mode, pause the
+    /// soundtrack (web view retained — per spec §2.4) and flip mode. Idempotent for `.mix`.
+    private func enterMixMode() {
+        if case .soundtrack = mode {
+            soundtrackController.setPaused(true)
+        }
+        if mode != .mix {
+            mode = .mix
+        }
+    }
+
     func toggleTrack(_ track: Track) {
         if state.contains(track.id) {
             state.remove(id: track.id)
         } else {
             state.append(id: track.id, volume: 0.5)
         }
+        if !state.isEmpty { enterMixMode() } else if mode == .mix { mode = .idle }
         mixer.reconcileNow()
     }
 
     func setTrackVolume(_ trackId: String, _ v: Float) {
         state.setVolume(id: trackId, volume: v)
         mixer.reconcileNow()
+        // Volume changes don't change mode — only structural changes do.
     }
 
     func removeTrack(_ trackId: String) {
         state.remove(id: trackId)
+        if state.isEmpty, mode == .mix { mode = .idle }
         mixer.reconcileNow()
     }
 
@@ -164,17 +178,20 @@ final class AppModel: ObservableObject {
             .filter { $0.value >= 0.02 }
             .map { MixTrack(id: $0.key, volume: $0.value, paused: false) }
         state.replace(with: newTracks)
+        if !newTracks.isEmpty { enterMixMode() }
         mixer.reconcileNow()
     }
 
     func applySavedMix(_ mix: SavedMix) {
         let newTracks = mix.tracks.filter { $0.volume >= 0.02 }
         state.replace(with: newTracks)
+        if !newTracks.isEmpty { enterMixMode() }
         mixer.reconcileNow()
     }
 
     func clearMix() {
         state.clear()
+        if mode == .mix { mode = .idle }
         mixer.reconcileNow()
     }
 
@@ -279,7 +296,13 @@ final class AppModel: ObservableObject {
         guard let entry = soundtracksLibrary.entry(id: id) else { return }
         if case .soundtrack(let current) = mode, current == id { return }     // idempotent
 
-        // Side effect on the mix is added in Task 6. For now, just transition mode.
+        // Pause the mix (preserves per-track state — the user can switch back via
+        // the "Switch to mix" link on Focus).
+        if mode == .mix {
+            state.setAllPaused(true)
+            mixer.reconcileNow()
+        }
+
         mode = .soundtrack(id)
         soundtrackController.load(entry, autoplay: true)
     }

@@ -178,6 +178,58 @@ final class AppModelSoundtrackTests: XCTestCase {
         XCTAssertTrue(mock.calls.isEmpty)
     }
 
+    // MARK: - Mix mutations flip mode
+
+    func testToggleTrackFromIdleEntersMix() {
+        let (model, _) = makeModel()
+        let track = Track(id: "rain", name: "Rain", kind: .procedural(.white), artworkUrl: nil)
+        model.toggleTrack(track)
+        XCTAssertEqual(model.mode, .mix)
+    }
+
+    func testToggleTrackFromSoundtrackPausesAndSwitchesToMix() {
+        let (model, mock) = makeModel()
+        let entry = model.soundtracksLibrary.add(parsed: parsedURL("https://youtu.be/x"))
+        model.activateSoundtrack(id: entry.id)
+        mock.calls.removeAll()
+
+        let track = Track(id: "rain", name: "Rain", kind: .procedural(.white), artworkUrl: nil)
+        model.toggleTrack(track)
+
+        XCTAssertEqual(model.mode, .mix)
+        // Soundtrack is paused but NOT unloaded — per spec §2.4 the WKWebView is
+        // retained so the user can flip back fast.
+        XCTAssertEqual(mock.calls, [.setPaused(true)])
+    }
+
+    func testActivateSoundtrackFromMixPausesMix() {
+        let (model, _) = makeModel()
+        let rain = Track(id: "rain", name: "Rain", kind: .procedural(.white), artworkUrl: nil)
+        model.toggleTrack(rain)
+        XCTAssertEqual(model.mode, .mix)
+        XCTAssertTrue(model.state.anyPlaying)
+
+        let entry = model.soundtracksLibrary.add(parsed: parsedURL("https://youtu.be/x"))
+        model.activateSoundtrack(id: entry.id)
+
+        XCTAssertEqual(model.mode, .soundtrack(entry.id))
+        XCTAssertFalse(model.state.anyPlaying)   // mix paused
+        XCTAssertTrue(model.state.contains("rain"))   // mix preserved
+    }
+
+    func testApplyPresetFromSoundtrackSwitchesToMix() {
+        let (model, mock) = makeModel()
+        let entry = model.soundtracksLibrary.add(parsed: parsedURL("https://youtu.be/x"))
+        model.activateSoundtrack(id: entry.id)
+        mock.calls.removeAll()
+
+        let preset = Preset(id: "deep", name: "Deep", mix: ["rain": 0.5])
+        model.applyPreset(preset)
+
+        XCTAssertEqual(model.mode, .mix)
+        XCTAssertEqual(mock.calls, [.setPaused(true)])
+    }
+
     // MARK: - setSoundtrackVolume
 
     func testSetVolumeOnActivePushesToController() {

@@ -24,7 +24,9 @@ final class AppModelSaveMixTests: XCTestCase {
         let model = AppModel(
             catalog: catalog, state: state, mixer: mixer, cache: cache,
             focusSettings: focusSettings, session: session, design: design,
-            favorites: favorites, prefs: prefs, savedMixes: saved
+            favorites: favorites, prefs: prefs, savedMixes: saved,
+            soundtracksLibrary: SoundtracksLibrary(defaults: d),
+            soundtrackController: MockSoundtrackController()
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }
         return (model, saved)

@@ -37,6 +37,8 @@ final class AppModel: ObservableObject {
     let favorites: Favorites
     let prefs: Preferences
     let savedMixes: SavedMixes
+    let soundtracksLibrary: SoundtracksLibrary
+    let soundtrackController: WebSoundtrackControlling
 
     @Published var page: AppPage = .focus
     @Published var soundsTab: SoundsTab = .sounds
@@ -53,7 +55,9 @@ final class AppModel: ObservableObject {
         design: DesignSettings,
         favorites: Favorites,
         prefs: Preferences,
-        savedMixes: SavedMixes
+        savedMixes: SavedMixes,
+        soundtracksLibrary: SoundtracksLibrary,
+        soundtrackController: WebSoundtrackControlling
     ) {
         self.catalog = catalog
         self.state = state
@@ -65,6 +69,8 @@ final class AppModel: ObservableObject {
         self.favorites = favorites
         self.prefs = prefs
         self.savedMixes = savedMixes
+        self.soundtracksLibrary = soundtracksLibrary
+        self.soundtrackController = soundtrackController
         self.mixer.masterVolume = prefs.volume
 
         // Recompute the currently-loaded match whenever the active mix or the saved-mix

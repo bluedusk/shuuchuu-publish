@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body { margin: 0; padding: 0; background: #000; height: 100%; }
+    #embed { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="embed"></div>
+  <script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
+  <script>
+    let controller = null;
+    let pendingURI = null;
+    let lastPlaybackUpdateAt = 0;
+    let signInTimer = null;
+
+    function send(type, payload) {
+      try {
+        window.webkit.messageHandlers.xnoise.postMessage(
+          Object.assign({type: type}, payload || {})
+        );
+      } catch (_e) {}
+    }
+
+    function uriFromEmbedURL(url) {
+      const m = url.match(/\/embed\/([^/]+)\/([^?]+)/);
+      if (!m) return null;
+      return 'spotify:' + m[1] + ':' + m[2];
+    }
+
+    window.bridge = {
+      load: function (embedURL) {
+        const uri = uriFromEmbedURL(embedURL);
+        if (!uri) return;
+        if (!controller) { pendingURI = uri; return; }
+        controller.loadUri(uri);
+        scheduleSignInWatch();
+      },
+      play: function () { if (controller) controller.play(); scheduleSignInWatch(); },
+      pause: function () { if (controller) controller.pause(); cancelSignInWatch(); },
+      setVolume: function (v) {
+        if (controller) controller.setVolume(Math.max(0, Math.min(1, v)));
+      },
+    };
+
+    function scheduleSignInWatch() {
+      cancelSignInWatch();
+      const startedAt = Date.now();
+      signInTimer = setTimeout(function () {
+        if (lastPlaybackUpdateAt < startedAt) send('signInRequired');
+      }, 3000);
+    }
+    function cancelSignInWatch() {
+      if (signInTimer) { clearTimeout(signInTimer); signInTimer = null; }
+    }
+
+    window.onSpotifyIframeApiReady = function (IFrameAPI) {
+      const options = { width: '100%', height: '100%' };
+      const element = document.getElementById('embed');
+      IFrameAPI.createController(element, options, function (ctrl) {
+        controller = ctrl;
+        send('ready');
+        ctrl.addListener('playback_update', function (e) {
+          lastPlaybackUpdateAt = Date.now();
+          send('stateChange', { paused: e.data.isPaused });
+          if (e.data.name) send('titleChanged', { title: e.data.name });
+        });
+        ctrl.addListener('error', function (e) { send('error', { message: String(e && e.data) }); });
+        if (pendingURI) { ctrl.loadUri(pendingURI); pendingURI = null; }
+      });
+    };
+  </script>
+</body>
+</html>

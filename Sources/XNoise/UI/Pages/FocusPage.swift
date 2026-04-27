@@ -8,6 +8,9 @@ struct FocusPage: View {
 
     @State private var settingsHover = false
     @State private var ringHover = false
+    @State private var playHover = false
+    @State private var clearHover = false
+    @State private var addHover = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -147,24 +150,51 @@ struct FocusPage: View {
 
     private var playAllButton: some View {
         let anyPlaying = state.anyPlaying
-        return IconButton(systemName: anyPlaying ? "pause.fill" : "play.fill") {
-            model.togglePlayAll()
-        }
-        .disabled(state.isEmpty)
-        .opacity(state.isEmpty ? 0.4 : 1)
+        return minimalIcon(
+            systemName: anyPlaying ? "pause.fill" : "play.fill",
+            size: 13,
+            hover: $playHover,
+            disabled: state.isEmpty
+        ) { model.togglePlayAll() }
         .help(anyPlaying ? "Pause all" : "Play all")
     }
 
     private var clearAllButton: some View {
-        IconButton(systemName: "trash") { model.clearMix() }
-            .disabled(state.isEmpty)
-            .opacity(state.isEmpty ? 0.4 : 1)
+        minimalIcon(systemName: "trash",
+                    size: 12,
+                    hover: $clearHover,
+                    disabled: state.isEmpty) { model.clearMix() }
             .help("Clear all sounds")
     }
 
     private var addSoundButton: some View {
-        IconButton(systemName: "plus") { model.goTo(.sounds) }
+        minimalIcon(systemName: "plus",
+                    size: 14,
+                    hover: $addHover,
+                    disabled: false) { model.goTo(.sounds) }
             .help("Select sounds")
+    }
+
+    /// Plain glyph button — no background, no border. Defaults to ~45% opacity
+    /// (same as the settings gear) and brightens to full primary on hover.
+    private func minimalIcon(systemName: String,
+                             size: CGFloat,
+                             hover: Binding<Bool>,
+                             disabled: Bool,
+                             action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: size, weight: .regular))
+                .foregroundStyle(
+                    disabled ? Color.primary.opacity(0.20)
+                             : (hover.wrappedValue ? Color.primary : Color.primary.opacity(0.45))
+                )
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .onHover { hover.wrappedValue = $0 }
     }
 
     private var mixList: some View {

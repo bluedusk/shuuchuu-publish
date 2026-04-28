@@ -1,4 +1,4 @@
-# Panel Scene Backgrounds (Video & Image) — Design Spec
+# Panel Scene Backgrounds (Shaders) — Design Spec
 
 **Date:** 2026-04-28
 **Status:** Draft, approved in brainstorming session
@@ -9,36 +9,47 @@
 
 ## 1. Overview
 
-The popover currently shows a static `Wallpaper` view (gradient/material) behind the Focus UI. Users want a richer ambient backdrop — a looping screensaver-style video or a high-quality still image — that plays behind the timer and mix list while they work. Reference: macOS Aerial screensavers (cinematic 10–30 s loops, slow camera moves) and high-quality desktop wallpapers.
+The popover currently shows a static `Wallpaper` view (gradient/material) behind the Focus UI. Users want a richer ambient backdrop that plays behind the timer and mix list while they work.
 
-This spec adds **Scenes**: a curated, bundled library of looping MP4 videos and JPG/HEIC images, picked via a small chip in the Focus header, rendered as the bottommost layer of the popover under the existing UI.
+This spec ships **Scenes** as a real-time Metal **shader** background — a curated, bundled set of fragment shaders rendered behind the popover UI. The user picks a shader from a small chip in the Focus header; it animates continuously while the popover is visible. Compared to a video-backed approach, shaders give us:
+
+- Asset is a few KB of Metal source per scene instead of ~10 MB of MP4.
+- Infinite, never-repeating animation (no loop seam).
+- Crisp at any panel size — survives the planned 9:16 panel resize.
+- Trivial GPU cost on Apple Silicon (<1 ms per frame at 680×1080 for typical shaders).
+- Shader uniforms can read app state if we want the background to react (deferred to v2).
+
+Image and video scenes are **explicit follow-ups**, not v1 scope. The architecture is built to absorb them with a new `SceneKind` case and a parallel render branch — no breaking changes to the model or the UI layer.
 
 ### Core model: scene is independent of audio
 
-The active scene is **orthogonal** to whatever audio is playing. A user might run a fireplace video with rain audio, or no audio at all. Specifically:
+The active scene is **orthogonal** to whatever audio is playing. Specifically:
 
-- The selected scene loops continuously regardless of mix/soundtrack/idle state — it does **not** pause when audio pauses (screensaver behavior).
-- The scene's own audio track is always muted; `MixingController` and the YouTube `WKWebView` audio paths are untouched.
+- The selected scene animates continuously regardless of mix/soundtrack/idle state — it does **not** pause when audio pauses (screensaver behavior).
+- Shaders never touch `AVAudioSession`; `MixingController` and the YouTube `WKWebView` audio paths are untouched.
 - "No scene" is a valid state (the default on first launch) and renders the existing `Wallpaper` unchanged.
 
 ### Goals
 
-- Let users pick a cinematic looping video or a still image as the popover backdrop.
-- Stay fully isolated from the audio subsystem — no `AVAudioSession` involvement, no risk to the mix engine.
-- Persist the active scene across launches and survive popover dismissals without burning CPU/GPU when the popover is closed.
-- Ship a curated, bundled set of 5–8 scenes and treat the assets the same way the app treats `sounds/` — gitignored local content, generated catalog.
+- Let users pick a procedural Metal-shader background.
+- Stay fully isolated from the audio subsystem.
+- Persist the active scene across launches and survive popover dismissals without burning GPU when the popover is closed.
+- Ship a curated, bundled set of ~5 shaders sourced/ported by hand. Treat shader sources the same way the app treats `sounds/` — local content under `Sources/Shuuchuu/Resources/shaders/`, generated catalog at `scenes.json`. Both gitignored.
+- Keep the door open for image and video scenes as additive follow-ups.
 
 ### Non-goals (defer)
 
-- User-supplied folder ("bring your own MP4s" à la macOS screensavers).
-- YouTube / streamed video sources.
-- Scene auto-pairing with soundtracks (e.g., "Lofi Beats" auto-selects its matching scene).
-- Per-mix scene persistence (the active scene is a global setting, not part of `x-noise.savedMix`).
+- Image scenes (JPG/HEIC).
+- Video scenes (MP4/MOV via AVPlayer).
+- User-supplied shader folder ("drop `.metal` files in `~/Library/Application Support/shuuchuu/shaders/`").
+- Audio-reactive uniforms (mix volume / pomodoro phase → shader).
+- Per-shader uniform UI ("tweak the colors / speed").
+- Hot-reload of `.metal` sources during development.
+- Scene auto-pairing with soundtracks.
+- Per-mix scene persistence (the active scene is global, not part of `x-noise.savedMix`).
 - Tunable scrim opacity in `DesignSettings`.
 - Configurable crossfade duration.
-- Ken Burns slow-zoom on still images.
-- Per-scene volume of muted audio (always muted).
-- Diagnostic HUD (FPS, memory, decoder stats).
+- Diagnostic HUD (FPS, GPU time, shader-compile times).
 
 ---
 
@@ -49,18 +60,18 @@ The active scene is **orthogonal** to whatever audio is playing. A user might ru
 ```swift
 // Sources/Shuuchuu/Models/Scene.swift
 public enum SceneKind: String, Codable, Sendable {
-    case image
-    case video
+    case shader   // v1 — image/video added in follow-up specs
 }
 
 public struct Scene: Identifiable, Codable, Sendable, Equatable {
-    public let id: String           // filename stem, e.g. "fireplace-loop"
-    public let title: String        // display name, e.g. "Fireplace"
-    public let filename: String     // "fireplace-loop.mp4" or "mountain.jpg"
-    public let thumbnail: String    // "fireplace-loop.jpg" (always JPG, pre-rendered)
+    public let id: String        // filename stem, e.g. "aurora"
+    public let title: String     // display name, e.g. "Aurora"
+    public let thumbnail: String // pre-rendered "aurora.jpg" alongside the source
     public let kind: SceneKind
 }
+```
 
+```swift
 // Sources/Shuuchuu/Models/ScenesLibrary.swift
 @MainActor
 public final class ScenesLibrary: ObservableObject {
@@ -69,56 +80,81 @@ public final class ScenesLibrary: ObservableObject {
     public func entry(id: String) -> Scene? { scenes.first { $0.id == id } }
     private func loadFromBundle() { /* decode scenes.json from Bundle.module */ }
 }
+```
 
+```swift
 // Sources/Shuuchuu/Scenes/SceneController.swift
 @MainActor
 public final class SceneController: ObservableObject {
     public enum Renderable {
         case none
-        case image(NSImage)
-        case video(AVQueuePlayer)   // looper retained internally on the controller
+        case shader(ShaderInstance)
     }
 
     @Published public private(set) var activeSceneId: String?
     @Published public private(set) var renderable: Renderable = .none
 
     private let library: ScenesLibrary
-    private let prefs: Preferences
-    private var looper: AVPlayerLooper?
+    private let renderer: ShaderRenderer
 
-    public init(library: ScenesLibrary, prefs: Preferences) {
+    public init(library: ScenesLibrary, renderer: ShaderRenderer) {
         // Restore last-used id from UserDefaults (key: "shuuchuu.activeScene").
         // If the id no longer exists in the library, start at nil silently.
     }
 
     public func setScene(_ id: String?) {
         // 1. nil / unknown id → renderable = .none, activeSceneId = nil, persist.
-        // 2. Resolve id → Scene via library; check FileManager.fileExists at the
-        //    bundle URL. If missing, fall back to .none and log.
-        // 3. .image: NSImage(contentsOf:) → publish .image(img).
-        // 4. .video: build AVQueuePlayer + AVPlayerLooper, isMuted = true,
-        //    publish .video(player). Observe currentItem.status; if .failed
-        //    within 2s, fall back to .none and log.
-        // 5. Persist activeSceneId; publish.
+        // 2. Resolve id → Scene; ask renderer for a compiled ShaderInstance.
+        //    On compile failure, fall back to .none and log.
+        // 3. Persist activeSceneId; publish.
     }
 
-    /// Called by SceneBackground.onAppear / onDisappear so we don't decode
-    /// video while the menubar popover is dismissed.
-    public func popoverDidAppear() {
-        if case .video(let p) = renderable { p.play() }
+    public func popoverDidAppear() { /* unpause MTKView via Renderable */ }
+    public func popoverDidDisappear() { /* pause MTKView */ }
+}
+```
+
+```swift
+// Sources/Shuuchuu/Scenes/ShaderRenderer.swift
+@MainActor
+public final class ShaderRenderer {
+    private let device: MTLDevice
+    private let queue: MTLCommandQueue
+    private var pipelineCache: [String: MTLRenderPipelineState] = [:]
+    private let vertexLibrary: MTLLibrary   // shared fullscreen-quad vertex stage
+
+    public init?() {
+        // Build device + queue. Compile the shared vertex source (one-time).
     }
-    public func popoverDidDisappear() {
-        if case .video(let p) = renderable { p.pause() }
+
+    /// Compiles the .metal source for a scene id from Bundle.module and returns
+    /// a ready-to-bind pipeline. Cached across calls.
+    public func instance(for sceneId: String) throws -> ShaderInstance {
+        // 1. If cached, return cached pipeline wrapped in a fresh ShaderInstance
+        //    (each instance has its own startTime).
+        // 2. Else: load "shaders/<id>.metal" as a String resource.
+        // 3. device.makeLibrary(source: msl, options:) → MTLLibrary.
+        //    Throws on syntax error.
+        // 4. Build MTLRenderPipelineDescriptor with vertex from vertexLibrary
+        //    and fragment from new library (function name: "sceneMain").
+        // 5. device.makeRenderPipelineState(descriptor:) → cache + return.
     }
+}
+
+public struct ShaderInstance {
+    public let id: String
+    public let pipeline: MTLRenderPipelineState
+    public let startTime: CFTimeInterval     // CACurrentMediaTime() at creation
 }
 ```
 
 ### 2.2 Wiring into AppModel
 
-`AppModel` gains two stored properties:
+`AppModel` gains three stored properties:
 
 ```swift
 let scenes: ScenesLibrary
+let shaderRenderer: ShaderRenderer        // shared device/queue
 let scene: SceneController
 ```
 
@@ -129,7 +165,9 @@ Constructed in `AppModel.live(...)` next to `soundtracksLibrary` and `soundtrack
 .environmentObject(model.scene)
 ```
 
-`SceneController` is **fully self-contained**: it owns its `AVQueuePlayer`, persists its own state to `UserDefaults` (`shuuchuu.activeScene`), and exposes only `activeSceneId` + `setScene(_:)` + popover-visibility hooks. It does not call into `MixingController`, `FocusSession`, or any audio code. It does not know the mix state, the soundtrack mode, or the pomodoro phase.
+`SceneController` is **fully self-contained**: it owns its `Renderable`, persists its own state to `UserDefaults` (`shuuchuu.activeScene`), and exposes only `activeSceneId` + `setScene(_:)` + popover-visibility hooks. It does not call into `MixingController`, `FocusSession`, or any audio code. It does not know the mix state, the soundtrack mode, or the pomodoro phase.
+
+If `ShaderRenderer.init?` fails (no Metal device — extraordinarily unlikely on a macOS 26 supported Mac), `AppModel` keeps `scene` set to a no-op stub and the chip in the Focus header is hidden. Documented; not handled with a user-visible alert.
 
 ### 2.3 PopoverView ZStack order
 
@@ -137,7 +175,7 @@ Constructed in `AppModel.live(...)` next to `soundtracksLibrary` and `soundtrack
 
 ```
 ZStack {
-    SceneBackground()                  // NEW: video/image when activeSceneId != nil
+    SceneBackground()                  // NEW: shader render target
         .frame(width: size.width, height: size.height)
     Wallpaper(mode: design.wallpaper)  // existing — visible when no scene picked,
                                        //  also visible behind scrim under the scene
@@ -155,7 +193,7 @@ When `activeSceneId == nil`, `SceneBackground` renders an empty view and `SceneS
 
 ### 2.4 SceneBackground
 
-`NSViewRepresentable` wrapping a thin `NSView` whose layer hosts an `AVPlayerLayer` for video scenes or sets `layer.contents = nsImage` for image scenes. Branches on `library.entry(id: scene.activeSceneId)?.kind`.
+`NSViewRepresentable` over a thin `NSView` host that contains zero, one, or two stacked `MTKView`s. Two-view stack handles the crossfade: front view holds the active shader, back view holds the previous shader for the duration of the fade.
 
 ```swift
 struct SceneBackground: NSViewRepresentable {
@@ -165,15 +203,31 @@ struct SceneBackground: NSViewRepresentable {
 
     func updateNSView(_ view: SceneHostView, context: Context) {
         switch scene.renderable {
-        case .none:               view.clear()
-        case .image(let img):     view.show(image: img)
-        case .video(let player):  view.show(videoPlayer: player)
+        case .none:
+            view.clear()
+        case .shader(let inst):
+            view.show(shader: inst)
         }
     }
 }
+
+final class SceneHostView: NSView {
+    func show(shader: ShaderInstance) {
+        // 1. Build a new MTKView with .delegate = ShaderDrawDelegate(instance: shader,
+        //    renderer: <shared>).
+        // 2. Add as front layer.
+        // 3. Crossfade-out the previous front (now demoted to back) over 200 ms.
+        // 4. Remove demoted view at fade end.
+    }
+    func clear() { /* fade out front, remove */ }
+}
 ```
 
-`SceneHostView` keeps two stacked CALayers (front/back) and crossfades between them on each `show(...)` call (200 ms `CABasicAnimation` on `opacity`). This handles every transition: video → video, video → image, image → image, anything → empty.
+`ShaderDrawDelegate` (per-MTKView):
+
+- Owns a single `ShaderInstance`.
+- `mtkView(_:drawableSizeWillChange:)` → updates the cached `resolution` uniform.
+- `draw(in:)` is called every frame by MTKView's `CVDisplayLink`. Builds a one-shot command buffer, sets the pipeline, binds three constant buffers (`time`, `resolution`, `accent`), draws three vertices (fullscreen quad), commits.
 
 Lifecycle hooks on `SceneBackground`:
 
@@ -182,7 +236,7 @@ Lifecycle hooks on `SceneBackground`:
 .onDisappear { scene.popoverDidDisappear() }
 ```
 
-These map directly to the `MenuBarExtra` window appearing/disappearing, so we never decode video while the popover is hidden.
+`popoverDidAppear` sets `mtkView.isPaused = false`; `popoverDidDisappear` sets it to `true`. `isPaused = true` halts MTKView's render loop entirely — no GPU work, no `draw(in:)` calls.
 
 ### 2.5 SceneScrim
 
@@ -203,7 +257,7 @@ HStack(alignment: .top, spacing: 10) {
 }
 ```
 
-Same `minimalIcon` styling as the gear (45% opacity → primary on hover, 28×28 frame). SF Symbol: `photo.on.rectangle.angled`. Tooltip: "Scene".
+Same `minimalIcon` styling as the gear (45% opacity → primary on hover, 28×28 frame). SF Symbol: `paintbrush.pointed`. Tooltip: "Scene".
 
 **Picker popover content** (~280×360):
 
@@ -217,60 +271,58 @@ Same `minimalIcon` styling as the gear (45% opacity → primary on hover, 28×28
 │ └──────┘                     │
 │                              │
 │ ┌──────┐ ┌──────┐            │
-│ │ thumb│ │ thumb│ ▶          │  <- ▶ glyph in corner if .video
+│ │ thumb│ │ thumb│            │
 │ │      │ │      │            │
 │ └──────┘ └──────┘            │
-│  Aurora    Forest            │
+│  Aurora    Plasma            │
 │                              │
 │ ┌──────┐ ┌──────┐            │
-│ │ thumb│ │ thumb│ ▶          │
+│ │ thumb│ │ thumb│            │
 │ └──────┘ └──────┘            │
 └──────────────────────────────┘
 ```
 
 - "None" tile first; tap → `scene.setScene(nil)`.
 - Then a 2-column grid of bundled scenes. Tile = 130×75 thumbnail (16:9), with title beneath. Selected tile gets a 2pt accent stroke.
-- Video scenes get a small `play.fill` glyph in the upper-right corner (10pt, 70% opacity). Skip if you want them visually identical — call out for review.
 - Tap a tile → `scene.setScene(id)` → popover dismisses.
-- Empty state when `scenes.isEmpty`: centered text "No scenes installed." + one-line hint pointing at `Sources/Shuuchuu/Resources/scenes/`. Visible only in dev / on a fresh checkout — production builds always ship the curated set.
+- All v1 scenes are shaders, so no per-tile kind affordance is needed. (Reserve top-right corner for a glyph when image/video kinds land.)
+- Empty state when `scenes.isEmpty`: centered text "No scenes installed." + one-line hint pointing at `Sources/Shuuchuu/Resources/shaders/`. Visible only on a fresh checkout (the directory is gitignored); production builds always ship the curated set.
 
-### 2.7 Build / asset pipeline
+### 2.7 Asset pipeline
 
-New directory `Sources/Shuuchuu/Resources/scenes/`, gitignored alongside `sounds/`:
+New directory `Sources/Shuuchuu/Resources/shaders/`, gitignored alongside `sounds/`:
 
 ```
-Sources/Shuuchuu/Resources/scenes/
-├── fireplace-loop.mp4
-├── fireplace-loop.jpg     <- thumbnail
-├── aurora.mp4
-├── aurora.jpg
-├── mountain.heic          <- still scene
-├── mountain.jpg           <- thumbnail (still HEIC needs a JPG thumb too)
-└── ...
+Sources/Shuuchuu/Resources/shaders/
+├── aurora.metal
+├── aurora.jpg                <- thumbnail
+├── plasma.metal
+├── plasma.jpg
+├── starfield.metal
+├── starfield.jpg
+├── soft-waves.metal
+├── soft-waves.jpg
+├── rainfall.metal
+└── rainfall.jpg
 ```
 
-`scripts/gen-scenes.py` (new) scans the directory, infers `kind` from extension (`.mp4`/`.mov` → video, `.jpg`/`.heic`/`.png` → image), titles via simple humanization of the filename stem, and writes `Sources/Shuuchuu/Resources/scenes.json`:
+The shared vertex stage and any helper functions live as Swift string constants in `ShaderRenderer.swift`, compiled once into a separate `MTLLibrary` at renderer init. Scene authors never write or include shared MSL code.
+
+`scripts/gen-scenes.py` (new) scans the directory for `<id>.metal` files (excluding the `_`-prefixed shared file), pairs them with `<id>.jpg` thumbnails, humanizes the stem to a title, and writes `Sources/Shuuchuu/Resources/scenes.json`:
 
 ```json
 [
-  {
-    "id": "fireplace-loop",
-    "title": "Fireplace",
-    "filename": "fireplace-loop.mp4",
-    "thumbnail": "fireplace-loop.jpg",
-    "kind": "video"
-  },
-  {
-    "id": "mountain",
-    "title": "Mountain",
-    "filename": "mountain.heic",
-    "thumbnail": "mountain.jpg",
-    "kind": "image"
-  }
+  {"id": "aurora",     "title": "Aurora",     "thumbnail": "aurora.jpg",     "kind": "shader"},
+  {"id": "plasma",     "title": "Plasma",     "thumbnail": "plasma.jpg",     "kind": "shader"},
+  {"id": "starfield",  "title": "Starfield",  "thumbnail": "starfield.jpg",  "kind": "shader"},
+  {"id": "soft-waves", "title": "Soft Waves", "thumbnail": "soft-waves.jpg", "kind": "shader"},
+  {"id": "rainfall",   "title": "Rainfall",   "thumbnail": "rainfall.jpg",   "kind": "shader"}
 ]
 ```
 
-Both the `scenes/` directory and `scenes.json` are gitignored. Running the script is a manual step (same as `gen-catalog.py`) — no build phase.
+Both `shaders/` and `scenes.json` are gitignored. Running the script is a manual step (same as `gen-catalog.py`) — no build phase.
+
+`Package.swift` already declares `Sources/Shuuchuu/Resources` as a resource path; the directory's `.metal` and `.jpg` files are picked up as `Bundle.module` resources automatically. **No `.metallib` precompilation.** The .metal sources are loaded as plain text resources at runtime and compiled by `MTLDevice.makeLibrary(source:)` on first use.
 
 ### 2.8 Persistence
 
@@ -290,13 +342,14 @@ This is **not** part of `x-noise.savedMix` — scenes are a global preference, i
 
 1. User taps the chip → picker popover opens.
 2. User taps a tile → `scene.setScene(id)`.
-3. `SceneController` validates the file path; for video, it builds an `AVQueuePlayer` + `AVPlayerLooper` over the asset URL with `isMuted = true`.
-4. `SceneBackground` observes `activeSceneId` change and triggers a 200 ms crossfade from the previous content to the new content.
-5. Popover dismisses. The scene is now visible behind the UI.
+3. `SceneController` calls `renderer.instance(for: id)`. First-use compile of that scene's `.metal` source happens here (~50–200 ms on first call, ~µs on subsequent calls because the pipeline is cached).
+4. `SceneController` publishes `.shader(instance)`.
+5. `SceneBackground` observes the change, builds a new `MTKView` with a `ShaderDrawDelegate` over the instance, crossfades it in over 200 ms.
+6. Picker dismisses. The shader is now visible behind the UI.
 
 ### 3.3 Switching scenes
 
-Same path as 3.2. The crossfade is the only visual transition; the previous player is released after the fade completes. There is never more than one active video player + at most one fading-out player at once.
+Same path as 3.2. The crossfade is the only visual transition; the previous `MTKView` is removed after the fade completes. There are at most two `MTKView`s active at once (during the fade).
 
 ### 3.4 Clearing the scene
 
@@ -304,64 +357,117 @@ User taps "None" → `setScene(nil)` → `SceneBackground` crossfades to empty �
 
 ### 3.5 Popover open / close
 
-`SceneBackground.onAppear` calls `scene.popoverDidAppear()` → resumes video playback. `onDisappear` calls `popoverDidDisappear()` → pauses the player. Image scenes have no playback to manage; the image just stays in the layer's `contents`.
+`SceneBackground.onAppear` calls `scene.popoverDidAppear()` → sets `mtkView.isPaused = false`, render loop resumes. `onDisappear` calls `popoverDidDisappear()` → `isPaused = true`, GPU is idle. The `ShaderInstance.startTime` is preserved, so the time uniform continues to advance from where it left off — ie, the user perceives the shader as "still running" even though the GPU was idle while the popover was hidden. (For shaders where motion-from-zero matters, the author can mod or wrap the time uniform; the spec doesn't enforce a model.)
 
 ### 3.6 Sleep / wake
 
-No special handling. `AVPlayer` survives sleep cycles. The existing `handleSleep()` / `handleWake()` in `AppModel` are not touched. (If a regression appears here in QA, add a `pause()` on sleep notification — but assume not needed.)
+No special handling. MTKView's `isPaused` is already true while the popover is hidden, which is the typical state at sleep. On wake, if the popover is opened, render resumes.
 
 ### 3.7 Audio interaction
 
-None. The scene player is muted, never connects to `AVAudioSession`, and never touches `MixingController`. The mix engine, soundtrack `WKWebView`, and pomodoro session continue to operate independently.
+None. Shaders never touch `AVAudioSession` and never read app audio state in v1. The mix engine, soundtrack `WKWebView`, and pomodoro session continue to operate independently.
 
 ### 3.8 Failure modes
 
-- **File missing on disk** (e.g., user manually deleted from `scenes/` after the catalog was generated): `setScene` checks `FileManager.fileExists`. If false, set `activeSceneId = nil`, log a warning, render empty.
-- **AVPlayer fails to load** (corrupt MP4, codec unsupported): observe `player.currentItem.status`; if `.failed` within 2 seconds of starting playback, treat as missing — fall back to nil, log.
+- **`.metal` source missing**: `ShaderRenderer.instance(for:)` throws; `SceneController.setScene` catches, sets `activeSceneId = nil`, logs a warning, renders empty.
+- **`.metal` source has a compile error**: same path. The error is logged with the MSL diagnostic so the author can see what went wrong.
 - **Empty catalog** (`scenes.json` is `[]`): library publishes `[]`, picker shows the empty state, no crashes anywhere in the chain.
 - **Persisted id no longer in catalog**: fall back to nil silently on init.
+- **No Metal device** (`MTLCreateSystemDefaultDevice()` returns nil): impossible on supported hardware, but `ShaderRenderer.init?` returns nil, the chip is hidden, the feature is silently disabled.
 
 No modal alerts. Per project convention, all errors surface either inline or as silent fallbacks.
 
 ---
 
-## 4. Asset guidelines
+## 4. Shader authoring guidelines
 
-These are documented in the spec; they are **not** enforced in code. The encoding step happens once per scene by hand (or via a future helper script).
+These are documented in the spec; they are **not** enforced in code. Each scene is one self-contained `.metal` file plus one thumbnail JPG.
 
-### 4.1 Video
+### 4.1 File template
 
-- Container: MP4 (H.264 High profile) or MOV (HEVC). H.264 has wider compatibility; HEVC produces ~30 % smaller files at equivalent quality.
-- Resolution: 720p (1280×720). The popover is 340×540; even at 2× Retina it never needs more than ~1080×680. Higher resolution wastes bandwidth and decode cycles.
-- Frame rate: 24–30 fps. Slow ambient content does not benefit from 60 fps.
-- Bitrate: 3–5 Mbps. Above ~6 Mbps the visual gain is invisible at the popover's effective size.
-- Length: 10–30 seconds. Longer is fine but bloats the bundle.
-- Loop quality: encode so the **first frame ≈ last frame**. Standard editing practice — overlap last 0.5 s with first 0.5 s in the source. `AVPlayerLooper` will produce a near-imperceptible seam on properly prepared loops.
-- Audio: strip the audio track entirely (`ffmpeg -an`). It will never play; carrying it just bloats the file.
-- Target file size: < 15 MB per clip. Bundled set of 5–8 clips: < 120 MB total.
+```metal
+// Sources/Shuuchuu/Resources/shaders/aurora.metal
 
-### 4.2 Image
+#include <metal_stdlib>
+using namespace metal;
 
-- Format: JPG (sRGB, quality 80–85) or HEIC.
-- Resolution: 1920×1080 minimum. The popover renders at 340×540 logical, but Retina + future panel sizes make 1080p a safe floor.
-- Color space: sRGB.
-- Target file size: < 1 MB per image.
+fragment float4 sceneMain(float4 pos             [[position]],
+                          constant float  &time       [[buffer(0)]],
+                          constant float2 &resolution [[buffer(1)]],
+                          constant float4 &accent     [[buffer(2)]]) {
+    float2 uv = pos.xy / resolution;            // 0..1 across the panel
+    // ... shader math ...
+    float3 color = mix(accent.rgb, float3(0.05), 0.7);
+    return float4(color, 1.0);
+}
+```
 
-### 4.3 Thumbnails
+Required:
 
-Every scene needs a `<id>.jpg` thumbnail next to its asset. For video scenes, generate from a representative frame (`ffmpeg -ss 2 -i clip.mp4 -vframes 1 -q:v 4 clip.jpg`). For image scenes that are already JPG, the thumbnail can be the asset itself (or a downscaled copy).
+- One fragment function named **`sceneMain`** with exactly the signature above.
+- Returns a premultiplied `float4` color (the framebuffer is configured with `bgra8Unorm` and standard alpha).
+- No `#include` of project files; the only header is `<metal_stdlib>`. Each `.metal` file is compiled as a standalone `MTLLibrary`.
 
-Thumbnail target: 260×148 (2× the displayed 130×74 size), JPG quality 75, < 30 KB.
+### 4.2 The shared vertex stage
+
+A single fullscreen-quad vertex function is built into `ShaderRenderer` once at renderer init, from a Swift string constant compiled into its own `MTLLibrary`. Each scene's compiled fragment is paired with this shared vertex function at pipeline-build time. Authors never write a vertex stage.
+
+The shared vertex stage emits a 3-vertex triangle that covers the entire viewport with `[[position]]` in framebuffer coordinates. That's why `pos.xy / resolution` gives 0..1 UVs.
+
+### 4.3 Bound uniforms
+
+| Buffer | Type     | Meaning                                              |
+|--------|----------|------------------------------------------------------|
+| 0      | `float`  | seconds since `ShaderInstance.startTime` (wall clock) |
+| 1      | `float2` | drawable size in pixels (e.g. {680, 1080} on 2× displays) |
+| 2      | `float4` | accent color from `DesignSettings.accent`, RGBA in linear sRGB |
+
+No texture inputs in v1. No buffer 3+. No mutable state between frames.
+
+### 4.4 Performance budget
+
+Target: **< 1 ms per frame** at 2× retina (680×1080). Apple Silicon has plenty of headroom for typical shaders; this budget is generous, not tight. If a shader exceeds it, the panel still renders fine — the popover does not stutter — but the menu bar gets warmer and a battery-conscious user notices.
+
+Authoring checklist:
+
+- Avoid `for` loops with > 64 iterations (raymarchers, fractal iteration). Cap at ~32.
+- Avoid `pow` and `exp` in tight inner loops. Approximate with polynomials when possible.
+- Don't sample a texture you don't need (we don't bind any in v1, so this is moot, but worth keeping in mind for follow-ups).
+- Test on the slowest target (M1 base) before shipping a shader.
+
+### 4.5 Sourcing shaders
+
+- **Original**: write directly in MSL.
+- **Shadertoy port**: GLSL→MSL is mostly mechanical. `iTime → time`, `iResolution.xy → resolution`, `mainImage → sceneMain`, `gl_FragCoord → pos`, `vec2/vec3/vec4 → float2/float3/float4`, `mix/clamp/smoothstep` keep their names. Plan ~30 min per Shadertoy port for first-time authors. Only port shaders whose license permits redistribution (most Shadertoy shaders are CC-BY-NC-SA; check before bundling).
+
+### 4.6 Thumbnails
+
+Every `.metal` file needs a `<id>.jpg` thumbnail next to it. For v1, generate by hand: run the app, pick the scene, take a screenshot, crop to 16:9, downscale, save as `<id>.jpg`. Target: 260×148, JPG quality 75, < 30 KB.
+
+A future helper could render shaders headlessly via a CLI (`xcrun metal` + offscreen `MTLTexture` → JPG); out of scope.
+
+### 4.7 v1 starter set
+
+Five shaders to validate the system end-to-end:
+
+- **aurora** — vertical flowing color bands, accent-tinted.
+- **plasma** — classic sin-of-sin gradient.
+- **starfield** — slowly drifting parallax stars.
+- **soft-waves** — horizontal sine waves with a subtle glow.
+- **rainfall** — thin diagonal streaks against a dark sky.
+
+These give a mix of "calm" (waves, rainfall) and "alive" (plasma, starfield) so the picker visibly demonstrates the range from day one.
 
 ---
 
 ## 5. Performance considerations
 
-- **One active video decoder.** `SceneController` holds at most one `AVQueuePlayer` at a time. During a crossfade, a second player exists for ~200 ms before the old one is released.
-- **Decoding pauses with the popover.** `popoverDidDisappear()` calls `player.pause()` — no GPU/CPU spent decoding while the menubar window is dismissed. Image scenes consume no decode resources at all.
-- **Working set per video clip**: ~30–80 MB (decoded frame buffer + lookahead). Acceptable; the app's existing audio buffers dominate.
-- **No SwiftUI redraws from video frames.** The video is in an `AVPlayerLayer` outside SwiftUI's render path. Pomodoro-driven 1 Hz timer label redraws don't affect video playback or vice versa.
-- **Image scenes are essentially free**: a single `NSImage` set on a `CALayer.contents` once.
+- **One active fragment shader at the panel size.** Even a moderately heavy shader (raymarcher with 32 steps) runs in well under 1 ms per frame at 680×1080 on Apple Silicon. The cost is dwarfed by the existing audio engine and SwiftUI render path.
+- **Render loop pauses with the popover.** `mtkView.isPaused = true` on `onDisappear` halts the render callback entirely — zero GPU work while the popover is dismissed.
+- **First-use compile cost.** ~50–200 ms to compile one `.metal` source the first time the user picks it. Pipelines are cached for the lifetime of the process, so subsequent picks are µs.
+- **No SwiftUI redraws from shader frames.** The shader renders into an `MTKView`'s drawable, outside SwiftUI's render path. Pomodoro-driven 1 Hz timer label redraws don't affect shader playback or vice versa.
+- **Memory**: trivial. One pipeline state per ever-used shader (~10s of KB), one drawable per active MTKView (~3 MB at 680×1080 RGBA).
+- **Crossfade window**: ≤ 200 ms with two MTKViews rendering simultaneously — peak is two shaders' worth of work, still well under 2 ms total per frame.
 
 ---
 
@@ -370,40 +476,44 @@ Thumbnail target: 260×148 (2× the displayed 130×74 size), JPG quality 75, < 3
 **Added:**
 - `Sources/Shuuchuu/Models/Scene.swift` — `Scene` + `SceneKind` types.
 - `Sources/Shuuchuu/Models/ScenesLibrary.swift` — `ObservableObject` library loader.
-- `Sources/Shuuchuu/Scenes/SceneController.swift` — controller with `AVQueuePlayer`/`AVPlayerLooper` lifecycle and `UserDefaults` persistence.
+- `Sources/Shuuchuu/Scenes/SceneController.swift` — controller with `Renderable` lifecycle and `UserDefaults` persistence.
+- `Sources/Shuuchuu/Scenes/ShaderRenderer.swift` — Metal device/queue holder, shared vertex library, MSL→pipeline cache.
+- `Sources/Shuuchuu/Scenes/ShaderDrawDelegate.swift` — per-`MTKView` draw delegate that owns one `ShaderInstance` and binds the three uniform buffers each frame.
 - `Sources/Shuuchuu/UI/Components/SceneBackground.swift` — `NSViewRepresentable` host + `SceneHostView` with crossfade.
 - `Sources/Shuuchuu/UI/Components/SceneScrim.swift` — gradient overlay.
 - `Sources/Shuuchuu/UI/Components/ScenePicker.swift` — popover content (grid + None tile).
-- `Sources/Shuuchuu/Resources/scenes/` — gitignored bundle directory.
+- `Sources/Shuuchuu/Resources/shaders/` — gitignored bundle directory containing the 5 starter `.metal` files + thumbnails.
 - `Sources/Shuuchuu/Resources/scenes.json` — gitignored generated catalog.
 - `scripts/gen-scenes.py` — scanner that emits `scenes.json`.
 - `Tests/ShuuchuuTests/SceneControllerTests.swift` — see §7.
 
 **Modified:**
-- `Sources/Shuuchuu/AppModel.swift` — add `scenes: ScenesLibrary` and `scene: SceneController` properties; construct in `live(...)`.
+- `Sources/Shuuchuu/AppModel.swift` — add `scenes: ScenesLibrary`, `shaderRenderer: ShaderRenderer`, and `scene: SceneController` properties; construct in `live(...)`.
 - `Sources/Shuuchuu/UI/PopoverView.swift` — add `SceneBackground` and `SceneScrim` to the bottom of the ZStack; inject env objects.
 - `Sources/Shuuchuu/UI/Pages/FocusPage.swift` — add the scene chip + picker popover state to `header`.
-- `.gitignore` — add `Sources/Shuuchuu/Resources/scenes/` and `Sources/Shuuchuu/Resources/scenes.json`.
+- `.gitignore` — add `Sources/Shuuchuu/Resources/shaders/` and `Sources/Shuuchuu/Resources/scenes.json`.
 
 ---
 
 ## 7. Testing
 
-The audio/UI separation means scene logic can be unit-tested without an audio engine, and renders can be checked by SwiftUI Preview during development. There are no snapshot tests anywhere in the project — don't add one for this.
+The Metal/UI separation means the controller can be unit-tested without instantiating a real `ShaderRenderer`, and renders can be validated by SwiftUI Preview during development. There are no snapshot tests anywhere in the project — don't add one for this.
 
 **`SceneControllerTests`** — XCTest, in `Tests/ShuuchuuTests/`:
 
-- `setScene(_:)` with a known-good id → publishes the new id, persists to `UserDefaults`.
-- `setScene(nil)` → publishes nil, clears the persisted key.
-- `setScene` with an id that is not in the library → falls back to nil, no crash.
-- `init` with a previously persisted id that is still in the library → restores it.
-- `init` with a previously persisted id that is no longer in the library → starts at nil.
+- `setScene(_:)` with a known-good id → publishes the new id, persists to `UserDefaults`, publishes a non-`.none` `Renderable`.
+- `setScene(nil)` → publishes nil, clears the persisted key, publishes `.none`.
+- `setScene` with an id not in the library → falls back to nil, no crash.
+- `setScene` with a library id whose renderer compile fails → falls back to nil, no crash, error logged.
+- `init` with a previously persisted id that is still in the library and compiles → restores it.
+- `init` with a previously persisted id no longer in the library → starts at nil.
 
-Use a fixture `ScenesLibrary` injected via init (not the bundle loader) and an in-memory `UserDefaults(suiteName:)`. No `AVPlayer` involvement in tests — exercise the controller's published state and persistence only. The video-loading path is exercised manually during development (run the app, pick a scene, watch it play).
+Use a fixture `ScenesLibrary` injected via init and a stub `ShaderRendererProtocol` (extract a tiny protocol over `instance(for:)` so tests can inject a stub that returns/throws as needed). Use an in-memory `UserDefaults(suiteName:)`. **No real `MTLDevice` involvement in tests** — the Metal compile path is exercised manually during development by running the app and picking each shipped shader.
 
 Skipped:
-- Real `AVPlayer` integration tests — fragile, slow, and the surface is small enough to validate by hand.
+- Real `MTLRenderPipelineState` / `MTKView` integration tests — fragile, slow, and the surface is small enough to validate by hand.
 - Snapshot/visual tests — none exist in the project; out of scope.
+- Per-shader visual correctness — the author validates each shader at authoring time.
 
 ---
 
@@ -411,16 +521,20 @@ Skipped:
 
 These are intentionally deferred:
 
-- User-supplied folder ("import from `~/Pictures/Wallpapers/`").
-- YouTube / streamed video sources.
+- Image scenes (JPG/HEIC).
+- Video scenes (MP4/MOV via AVPlayer).
+- User-supplied shader/video/image folder.
+- Audio-reactive uniforms (mix volume / pomodoro phase → shader).
+- Per-shader uniform UI ("tweak the colors / speed").
+- Hot-reload of `.metal` sources during development.
 - Per-soundtrack auto-pairing.
 - Per-mix scene persistence.
 - Tunable scrim opacity in `DesignSettings`.
 - Configurable crossfade duration.
-- Ken Burns slow-zoom on still images.
 - Per-scene metadata (author, license, longer description).
 - A "Random" or "Shuffle" scene mode.
 - Pause-on-audio-pause behavior (scene always loops; this was an explicit decision).
 - Diagnostic HUD.
+- A headless thumbnail-rendering CLI.
 
 If any of these come up post-launch, they get their own spec.

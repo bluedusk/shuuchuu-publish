@@ -2,6 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!-- Strict CSP. We load the Spotify embed-iframe-API script from
+       open.spotify.com; the API in turn injects an iframe that points back at
+       open.spotify.com. Nothing else needs network access from this page. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self' 'unsafe-inline' https://open.spotify.com; style-src 'unsafe-inline'; frame-src https://open.spotify.com; connect-src https://open.spotify.com">
   <style>
     html, body { margin: 0; padding: 0; background: #000; height: 100%; }
     #embed { width: 100%; height: 100%; }
@@ -18,7 +23,7 @@
 
     function send(type, payload) {
       try {
-        window.webkit.messageHandlers.xnoise.postMessage(
+        window.webkit.messageHandlers.shuuchuu.postMessage(
           Object.assign({type: type}, payload || {})
         );
       } catch (_e) {}

@@ -52,6 +52,11 @@ final class Catalog: ObservableObject {
 
     private let fetcher: CatalogFetcher
     private let cacheFile: URL
+    /// Bumped at every `refresh()` entry. Each refresh remembers its own value
+    /// across the await; if a newer refresh starts before this one finishes, the
+    /// stale fetch's result is discarded — without this, a slow request can land
+    /// after a fast one and overwrite fresh state.
+    private var currentRefreshID: UUID = UUID()
 
     init(fetcher: CatalogFetcher, cacheFile: URL) {
         self.fetcher = fetcher
@@ -59,20 +64,23 @@ final class Catalog: ObservableObject {
     }
 
     func refresh() async {
+        let myID = UUID()
+        currentRefreshID = myID
+
         let cached = loadCache()
-        if let cached {
+        if let cached, currentRefreshID == myID {
             state = .ready(cached.categories)
         }
 
         do {
             let data = try await fetcher.fetch()
+            guard currentRefreshID == myID else { return }
             let fresh = try JSONDecoder().decode(CatalogDocument.self, from: data)
             try? data.write(to: cacheFile, options: .atomic)
             state = .ready(fresh.categories)
         } catch {
-            if cached != nil {
-                return
-            }
+            guard currentRefreshID == myID else { return }
+            if cached != nil { return }
             state = .offline(stale: nil)
         }
     }

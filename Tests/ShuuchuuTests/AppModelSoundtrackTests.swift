@@ -1,6 +1,6 @@
 import XCTest
 import Combine
-@testable import XNoise
+@testable import Shuuchuu
 
 @MainActor
 final class AppModelSoundtrackTests: XCTestCase {
@@ -361,15 +361,17 @@ final class AppModelSoundtrackTests: XCTestCase {
         // Second launch: same defaults, fresh AppModel.
         let (reloaded, mock) = makeModel(defaults: d)
         XCTAssertEqual(reloaded.mode, .soundtrack(savedId))
-        // Per spec §7: do NOT autoplay on launch.
-        XCTAssertTrue(mock.calls.isEmpty)
+        // Per spec §7: prime the controller paused so play works without re-activating,
+        // but do NOT autoplay.
+        XCTAssertEqual(mock.calls, [.load(id: savedId, autoplay: false)])
+        XCTAssertTrue(reloaded.activeSourcePaused)
     }
 
     func testModeFallsBackToIdleIfPersistedSoundtrackMissing() {
         let d = Self.ephemeralDefaults()
         // Hand-write a stale mode pointing at a UUID that's not in the library.
         let stale = try! JSONEncoder().encode(AudioMode.soundtrack(UUID()))
-        d.set(stale, forKey: "x-noise.audioMode")
+        d.set(stale, forKey: "shuuchuu.audioMode")
 
         let (model, _) = makeModel(defaults: d)
         XCTAssertEqual(model.mode, .idle)

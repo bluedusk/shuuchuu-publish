@@ -5,6 +5,7 @@ struct FocusPage: View {
     @EnvironmentObject var design: DesignSettings
     @EnvironmentObject var session: FocusSession
     @EnvironmentObject var state: MixState
+    @EnvironmentObject var settings: FocusSettings
 
     @State private var settingsHover = false
     @State private var ringHover = false
@@ -15,8 +16,10 @@ struct FocusPage: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            ringBlock
-            Hairline().padding(.horizontal, 22).padding(.top, 4).padding(.bottom, 10)
+            if settings.pomodoroEnabled {
+                ringBlock
+                Hairline().padding(.horizontal, 22).padding(.top, 4).padding(.bottom, 10)
+            }
             bottomRegion
             Spacer(minLength: 0)
         }
@@ -27,14 +30,16 @@ struct FocusPage: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Spec §06 section: 12pt SF Pro Text semibold uppercase + 0.06em.
-                Text("FOCUS")
-                    .font(.system(size: 12, weight: .semibold))
-                    .kerning(0.72)
-                    .xnText(.secondary)
-                SessionDots(total: session.totalSessions, current: session.currentSession)
-                    .padding(.top, 8)
+            if settings.pomodoroEnabled {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Spec §06 section: 12pt SF Pro Text semibold uppercase + 0.06em.
+                    Text("FOCUS")
+                        .font(.system(size: 12, weight: .semibold))
+                        .kerning(0.72)
+                        .shText(.secondary)
+                    SessionDots(total: session.totalSessions, current: session.currentSession)
+                        .padding(.top, 8)
+                }
             }
             Spacer()
             Button(action: { model.goTo(.settings) }) {
@@ -151,16 +156,24 @@ struct FocusPage: View {
         switch model.mode {
         case .soundtrack(let id):
             if let entry = model.soundtracksLibrary.entry(id: id) {
-                SoundtrackPanel(
-                    soundtrack: entry,
-                    paused: model.activeSourcePaused,
-                    canSwitchToMix: !model.state.isEmpty,
-                    onTogglePause: { model.togglePlayAll() },
-                    onVolumeChange: { v in model.setSoundtrackVolume(id: id, volume: v) },
-                    onSwitchToMix: { model.switchToMix() }
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
+                VStack(spacing: 8) {
+                    HStack {
+                        Spacer()
+                        addSoundButton
+                    }
+                    .padding(.horizontal, 16)
+
+                    SoundtrackPanel(
+                        soundtrack: entry,
+                        paused: model.activeSourcePaused,
+                        canSwitchToMix: !model.state.isEmpty,
+                        errorCode: model.soundtrackError?.id == id ? model.soundtrackError?.code : nil,
+                        onTogglePause: { model.togglePlayAll() },
+                        onVolumeChange: { v in model.setSoundtrackVolume(id: id, volume: v) },
+                        onSwitchToMix: { model.switchToMix() }
+                    )
+                    .padding(.horizontal, 16)
+                }
             }
         case .mix, .idle:
             mixSection
@@ -244,7 +257,7 @@ struct FocusPage: View {
     private var emptyPlaceholder: some View {
         Text("No sounds playing — tap Select below")
             .font(.system(size: 11))
-            .xnText(.tertiary)
+            .shText(.tertiary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 18)
             .overlay(

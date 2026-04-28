@@ -1,21 +1,18 @@
 import SwiftUI
 
 /// View modifier that applies one of the three spec-defined text opacity stops
-/// (0.92 / 0.62 / 0.40), picking the right ink (white in dark, near-black in light)
-/// from the resolved theme on `DesignSettings`.
-struct XNTextStyle: ViewModifier {
-    let stop: XNTokens.TextStop
-    @EnvironmentObject var design: DesignSettings
+/// (0.92 / 0.62 / 0.40). White ink only — the app is dark-mode only.
+struct SHTextStyle: ViewModifier {
+    let stop: SHTokens.TextStop
 
     func body(content: Content) -> some View {
-        content.foregroundStyle(XNTokens.text(stop, theme: design.resolvedTheme))
+        content.foregroundStyle(SHTokens.text(stop))
     }
 }
 
 extension View {
-    /// Use the spec's primary (0.92), secondary (0.62), or tertiary (0.40) text color
-    /// in a way that flips the ink correctly when the user switches between dark/light.
-    func xnText(_ stop: XNTokens.TextStop) -> some View {
-        modifier(XNTextStyle(stop: stop))
+    /// Use the spec's primary (0.92), secondary (0.62), or tertiary (0.40) text color.
+    func shText(_ stop: SHTokens.TextStop) -> some View {
+        modifier(SHTextStyle(stop: stop))
     }
 }

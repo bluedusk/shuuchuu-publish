@@ -1,13 +1,13 @@
 import XCTest
 import CryptoKit
-@testable import XNoise
+@testable import Shuuchuu
 
 final class AudioCacheTests: XCTestCase {
     private var tempDir: URL!
 
     override func setUp() async throws {
         tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("xnoise-cache-\(UUID())")
+            .appendingPathComponent("shuuchuu-cache-\(UUID())")
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     }
 
@@ -19,24 +19,21 @@ final class AudioCacheTests: XCTestCase {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private func makeTrack(url: URL, hash: String, bytes: Int64 = 100) -> Track {
-        Track(id: "t",
-              name: "T",
-              kind: .streamed(StreamedInfo(url: url, sha256: hash, bytes: bytes, durationSec: 10)),
-              artworkUrl: nil)
+    private func makeInfo(url: URL, hash: String, bytes: Int64 = 100) -> StreamedInfo {
+        StreamedInfo(url: url, sha256: hash, bytes: bytes, durationSec: 10)
     }
 
     func testDownloadAndVerify() async throws {
         let payload = Data("hello".utf8)
         let hash = sha256(payload)
         let remoteURL = URL(string: "https://example/audio.caf")!
-        let track = makeTrack(url: remoteURL, hash: hash)
+        let info = makeInfo(url: remoteURL, hash: hash)
 
         let cache = AudioCache(
             baseDir: tempDir,
             downloader: StubDownloader(payload: payload)
         )
-        let localURL = try await cache.localURL(for: track)
+        let localURL = try await cache.localURL(for: info)
 
         let onDisk = try Data(contentsOf: localURL)
         XCTAssertEqual(onDisk, payload)
@@ -45,18 +42,19 @@ final class AudioCacheTests: XCTestCase {
     func testReusesCachedFileOnSecondCall() async throws {
         let payload = Data("hello".utf8)
         let hash = sha256(payload)
-        let track = makeTrack(url: URL(string: "https://example/a.caf")!, hash: hash)
+        let info = makeInfo(url: URL(string: "https://example/a.caf")!, hash: hash)
         let downloader = StubDownloader(payload: payload)
         let cache = AudioCache(baseDir: tempDir, downloader: downloader)
 
-        _ = try await cache.localURL(for: track)
-        _ = try await cache.localURL(for: track)
+        _ = try await cache.localURL(for: info)
+        _ = try await cache.localURL(for: info)
 
-        XCTAssertEqual(downloader.callCount, 1)
+        let count = await downloader.callCount
+        XCTAssertEqual(count, 1)
     }
 
     func testIntegrityFailureThrows() async throws {
-        let track = makeTrack(
+        let info = makeInfo(
             url: URL(string: "https://example/a.caf")!,
             hash: String(repeating: "0", count: 64)
         )
@@ -65,11 +63,43 @@ final class AudioCacheTests: XCTestCase {
             downloader: StubDownloader(payload: Data("hello".utf8))
         )
         do {
-            _ = try await cache.localURL(for: track)
+            _ = try await cache.localURL(for: info)
             XCTFail("expected integrity error")
         } catch AudioCache.CacheError.integrityFailed {
             // pass
         }
+    }
+
+    func testInvalidHashRejected() async throws {
+        let info = makeInfo(url: URL(string: "https://example/a.caf")!, hash: "../etc/passwd")
+        let cache = AudioCache(baseDir: tempDir, downloader: StubDownloader(payload: Data()))
+        do {
+            _ = try await cache.localURL(for: info)
+            XCTFail("expected invalidHash error")
+        } catch AudioCache.CacheError.invalidHash {
+            // pass — must reject before touching the network
+        }
+    }
+
+    func testConcurrentFetchesShareSingleDownload() async throws {
+        let payload = Data("dedup".utf8)
+        let hash = sha256(payload)
+        let info = makeInfo(url: URL(string: "https://example/a.caf")!, hash: hash)
+        let downloader = StubDownloader(payload: payload)
+        let cache = AudioCache(baseDir: tempDir, downloader: downloader)
+
+        // Kick off 5 concurrent fetches for the same key — they should all
+        // resolve to the same file, but only ONE network round-trip should happen.
+        async let r0 = cache.localURL(for: info)
+        async let r1 = cache.localURL(for: info)
+        async let r2 = cache.localURL(for: info)
+        async let r3 = cache.localURL(for: info)
+        async let r4 = cache.localURL(for: info)
+        let urls = try await [r0, r1, r2, r3, r4]
+
+        XCTAssertEqual(Set(urls.map(\.path)).count, 1)
+        let count = await downloader.callCount
+        XCTAssertEqual(count, 1)
     }
 
     func testLRUEviction() async throws {
@@ -84,9 +114,9 @@ final class AudioCacheTests: XCTestCase {
             let payload = Data(repeating: UInt8(i), count: 50)
             let hash = sha256(payload)
             let url = URL(string: "https://example/\(i).caf")!
-            let track = makeTrack(url: url, hash: hash)
-            dynamic.next = payload
-            _ = try await cache.localURL(for: track)
+            let info = makeInfo(url: url, hash: hash)
+            await dynamic.setNext(payload)
+            _ = try await cache.localURL(for: info)
             try await Task.sleep(nanoseconds: 10_000_000) // 10 ms
         }
 
@@ -97,9 +127,9 @@ final class AudioCacheTests: XCTestCase {
     }
 }
 
-private final class StubDownloader: AudioDownloader {
+private actor StubDownloader: AudioDownloader {
     let payload: Data
-    var callCount = 0
+    private(set) var callCount = 0
     init(payload: Data) { self.payload = payload }
     func download(from url: URL) async throws -> Data {
         callCount += 1
@@ -107,7 +137,8 @@ private final class StubDownloader: AudioDownloader {
     }
 }
 
-private final class DynamicPayloadDownloader: AudioDownloader {
-    var next: Data = Data()
+private actor DynamicPayloadDownloader: AudioDownloader {
+    private var next: Data = Data()
+    func setNext(_ data: Data) { next = data }
     func download(from url: URL) async throws -> Data { next }
 }

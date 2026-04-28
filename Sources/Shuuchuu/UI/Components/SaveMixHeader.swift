@@ -51,7 +51,7 @@ struct SaveMixHeader: View {
             Button("Cancel") { model.cancelSaveMix() }
                 .buttonStyle(.plain)
                 .font(.system(size: 11))
-                .xnText(.secondary)
+                .shText(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 6)
                 .keyboardShortcut(.cancelAction)
@@ -80,7 +80,7 @@ struct SaveMixHeader: View {
             Text("SAVING")
                 .font(.system(size: 10, weight: .semibold))
                 .kerning(0.6)
-                .xnText(.secondary)
+                .shText(.secondary)
             Text(previewText)
                 .font(.system(size: 10))
                 .foregroundStyle(.white.opacity(0.7))
@@ -101,13 +101,13 @@ struct SaveMixHeader: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Overwrite \"\(existing.name)\"?")
                 .font(.system(size: 12, weight: .medium))
-                .xnText(.primary)
+                .shText(.primary)
             HStack(spacing: 6) {
                 Spacer(minLength: 0)
                 Button("Save as new") { model.saveAsNewWithSuffix() }
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
-                    .xnText(.secondary)
+                    .shText(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(

@@ -1,11 +1,11 @@
 import Foundation
 import CryptoKit
 
-protocol AudioDownloader: AnyObject {
+protocol AudioDownloader: AnyObject, Sendable {
     func download(from url: URL) async throws -> Data
 }
 
-final class URLSessionDownloader: AudioDownloader {
+final class URLSessionDownloader: AudioDownloader, @unchecked Sendable {
     let session: URLSession
     init(session: URLSession = .shared) { self.session = session }
     func download(from url: URL) async throws -> Data {
@@ -17,14 +17,25 @@ final class URLSessionDownloader: AudioDownloader {
     }
 }
 
-final class AudioCache {
+/// Persistent on-disk cache for streamed audio. SHA-256 keyed (the catalog hash
+/// IS the cache filename), LRU-evicting when over the byte cap.
+///
+/// Concurrency: actor-isolated so two parallel fetches for the same track share
+/// a single download Task instead of racing each other on the network and the
+/// rename. Without dedup the second fetch's atomic rename can clobber an
+/// in-flight write and leave a corrupt file behind.
+actor AudioCache {
     enum CacheError: Error {
         case integrityFailed
+        case invalidHash
     }
 
     let baseDir: URL
     let downloader: AudioDownloader
     let limitBytes: Int64
+
+    /// In-flight fetches keyed on sha256 — second caller awaits the same Task.
+    private var inFlight: [String: Task<URL, Error>] = [:]
 
     init(baseDir: URL, downloader: AudioDownloader, limitBytes: Int64 = Constants.audioCacheLimitBytes) {
         self.baseDir = baseDir
@@ -33,11 +44,23 @@ final class AudioCache {
         try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
     }
 
-    func localURL(for track: Track) async throws -> URL {
-        guard case .streamed(let info) = track.kind else {
-            fatalError("AudioCache only handles streamed tracks")
+    func localURL(for info: StreamedInfo) async throws -> URL {
+        try Self.validateHash(info.sha256)
+
+        if let existing = inFlight[info.sha256] {
+            return try await existing.value
         }
-        let ext = info.url.pathExtension.isEmpty ? "caf" : info.url.pathExtension
+
+        let task = Task<URL, Error> { [info] in
+            try await self.fetchAndCache(info: info)
+        }
+        inFlight[info.sha256] = task
+        defer { inFlight[info.sha256] = nil }
+        return try await task.value
+    }
+
+    private func fetchAndCache(info: StreamedInfo) async throws -> URL {
+        let ext = Self.safeExtension(for: info.url)
         let fileURL = baseDir.appendingPathComponent("\(info.sha256).\(ext)")
 
         if FileManager.default.fileExists(atPath: fileURL.path) {
@@ -55,11 +78,29 @@ final class AudioCache {
         try data.write(to: tmpURL, options: .atomic)
         _ = try FileManager.default.replaceItemAt(fileURL, withItemAt: tmpURL)
 
-        await evictIfOverLimit(keeping: fileURL)
+        evictIfOverLimit(keeping: fileURL)
         return fileURL
     }
 
-    func evictIfOverLimit(keeping exempt: URL? = nil) async {
+    /// Reject any sha256 that isn't 64 hex chars before using it as a path
+    /// component. Without this, a malicious catalog could embed `..` segments
+    /// and write outside `baseDir`.
+    private static func validateHash(_ s: String) throws {
+        guard s.count == 64, s.allSatisfy({ $0.isHexDigit }) else {
+            throw CacheError.invalidHash
+        }
+    }
+
+    /// Pin the file extension to a known audio format. Defaults to `caf`.
+    /// Without this, an attacker-controlled catalog URL could push a path-
+    /// extension that alters how the file is interpreted by downstream loaders.
+    private static func safeExtension(for url: URL) -> String {
+        let ext = url.pathExtension.lowercased()
+        let allowed: Set<String> = ["caf", "mp3", "m4a", "aac", "wav", "flac", "ogg"]
+        return allowed.contains(ext) ? ext : "caf"
+    }
+
+    func evictIfOverLimit(keeping exempt: URL? = nil) {
         let fm = FileManager.default
         guard let items = try? fm.contentsOfDirectory(
             at: baseDir,

@@ -26,7 +26,7 @@ struct MixRow: View {
     private var rowBackground: Color {
         switch mix {
         case .custom: return Color.white.opacity(0.04)
-        case .preset: return XNTokens.accent(hue: design.accentHue).opacity(0.07)
+        case .preset: return SHTokens.accent(hue: design.accentHue).opacity(0.07)
         }
     }
 
@@ -45,11 +45,11 @@ struct MixRow: View {
                     Text(mix.name)
                         .font(.system(size: 12, weight: .medium))
                         .lineLimit(1)
-                        .xnText(.primary)
+                        .shText(.primary)
                     Text(subline)
                         .font(.system(size: 10.5))
                         .lineLimit(1)
-                        .xnText(.tertiary)
+                        .shText(.tertiary)
                 }
                 Spacer(minLength: 0)
                 if mix.isCustom {
@@ -103,13 +103,13 @@ struct MixRow: View {
         HStack(spacing: 8) {
             Text("Delete \"\(mix.name)\"?")
                 .font(.system(size: 12))
-                .xnText(.primary)
+                .shText(.primary)
                 .lineLimit(1)
             Spacer(minLength: 0)
             Button("Cancel") { confirmingDelete = false }
                 .buttonStyle(.plain)
                 .font(.system(size: 11))
-                .xnText(.secondary)
+                .shText(.secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
             Button {

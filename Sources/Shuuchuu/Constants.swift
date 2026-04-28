@@ -5,7 +5,7 @@ enum Constants {
     static let catalogCacheFilename = "catalog.json"
 
     // MARK: - Audio cache
-    static let audioCacheDirName = "x-noise"
+    static let audioCacheDirName = "shuuchuu"
     static let audioCacheLimitBytes: Int64 = 500 * 1024 * 1024
 
     // MARK: - Fades (milliseconds)
@@ -15,11 +15,11 @@ enum Constants {
 
     // MARK: - UserDefaults keys
     enum PrefKey {
-        static let lastTrackId = "x-noise.lastTrackId"
-        static let volume = "x-noise.volume"
-        static let lastCategoryId = "x-noise.lastCategoryId"
-        static let resumeOnWake = "x-noise.resumeOnWake"
-        static let resumeOnLaunch = "x-noise.resumeOnLaunch"
+        static let lastTrackId = "shuuchuu.lastTrackId"
+        static let volume = "shuuchuu.volume"
+        static let lastCategoryId = "shuuchuu.lastCategoryId"
+        static let resumeOnWake = "shuuchuu.resumeOnWake"
+        static let resumeOnLaunch = "shuuchuu.resumeOnLaunch"
     }
 
     static let defaultVolume: Float = 0.7

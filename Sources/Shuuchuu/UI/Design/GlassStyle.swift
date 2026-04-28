@@ -10,19 +10,13 @@ struct GlassPanel: ViewModifier {
     let cornerRadius: CGFloat
     let opacity: Double      // tunable midpoint of the vertical tint gradient
     let stroke: Double
-    let theme: AppTheme
     var sheen: Bool = true
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return content
             // Layer 1 — backdrop blur (system material)
-            .background(
-                theme == .dark
-                    ? AnyShapeStyle(.ultraThinMaterial)
-                    : AnyShapeStyle(.thinMaterial),
-                in: shape
-            )
+            .background(.ultraThinMaterial, in: shape)
             // Layer 2 — vertical tint gradient (light at top, darker at bottom = "lit from above")
             .background(
                 LinearGradient(
@@ -71,7 +65,6 @@ struct GlassChip: ViewModifier {
     let cornerRadius: CGFloat
     let opacity: Double
     let stroke: Double
-    let theme: AppTheme
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -106,14 +99,10 @@ struct GlassChip: ViewModifier {
 
 extension View {
     func glassPanel(cornerRadius: CGFloat = 18, design: DesignSettings, sheen: Bool = true) -> some View {
-        // We keep white text in both themes (see XNTokens.text). That means light theme
-        // must NOT push the glass tint to 0.60 — a near-white surface would erase white
-        // text. Both themes use the user's tweakable opacity directly.
         modifier(GlassPanel(
             cornerRadius: cornerRadius,
             opacity: design.glassOpacity,
             stroke: design.glassStroke,
-            theme: design.resolvedTheme,
             sheen: sheen
         ))
     }
@@ -122,8 +111,7 @@ extension View {
         modifier(GlassChip(
             cornerRadius: cornerRadius,
             opacity: design.glassOpacity,
-            stroke: design.glassStroke,
-            theme: design.resolvedTheme
+            stroke: design.glassStroke
         ))
     }
 }

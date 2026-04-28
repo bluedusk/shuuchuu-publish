@@ -33,7 +33,11 @@ final class MixingController: ObservableObject {
         var started: Bool
     }
     private var attached: [String: AttachedTrack] = [:]
-    private var attaching: Set<String> = []
+    /// In-flight `attachSource` Tasks, keyed by track id. Cancelled when the track
+    /// is detached or when `stopAll()` runs while a prepare is mid-flight — without
+    /// this, a stop racing a prepare will let the prepare complete and re-attach
+    /// (re-starting the engine) after the stop returns.
+    private var attaching: [String: Task<Void, Never>] = [:]
 
     init(state: MixState, cache: AudioCache, resolveTrack: @escaping (String) -> Track?) {
         self.state = state
@@ -55,6 +59,16 @@ final class MixingController: ObservableObject {
     /// any track whose catalog entry hasn't arrived yet.
     func reconcileNow() { reconcile() }
 
+    /// Fast-path for volume drags. Writes `trackMixer.outputVolume` directly without
+    /// running a full reconcile pass (which would rebuild the id-set and walk the mix
+    /// twice on every slider tick). The caller must have already mutated `MixState`.
+    func setTrackVolume(_ trackId: String, _ volume: Float) {
+        guard let entry = attached[trackId],
+              let mt = state.track(trackId),
+              !mt.paused else { return }
+        entry.trackMixer.outputVolume = volume
+    }
+
     /// Apply the current `MixState.tracks` to the audio engine: attach new tracks,
     /// detach removed ones, and sync per-track volume/pause for the rest.
     private func reconcile() {
@@ -69,9 +83,13 @@ final class MixingController: ObservableObject {
         for mixTrack in state.tracks {
             if let entry = attached[mixTrack.id] {
                 applyVolume(entry: entry, mixTrack: mixTrack)
-            } else if !attaching.contains(mixTrack.id) {
-                attaching.insert(mixTrack.id)
-                Task { await attachSource(for: mixTrack.id) }
+            } else if attaching[mixTrack.id] == nil {
+                let id = mixTrack.id
+                let task = Task { [weak self] in
+                    guard let self else { return }
+                    await self.attachSource(for: id)
+                }
+                attaching[id] = task
             }
             // If already attaching, the next reconcile (triggered when attach completes
             // by virtue of mutating engine state, or by any subsequent state change)
@@ -104,11 +122,15 @@ final class MixingController: ObservableObject {
     }
 
     private func attachSource(for trackId: String) async {
-        defer { attaching.remove(trackId) }
+        defer { attaching.removeValue(forKey: trackId) }
 
         guard let track = resolveTrack(trackId) else { return }
         let source = makeSource(for: track)
         do { try await source.prepare() } catch { return }
+
+        // Cancelled during prepare — `detach(id:)` or `stopAll()` ran while we were
+        // preparing. Bail before touching engine state.
+        if Task.isCancelled { return }
 
         // Mix may have changed during prep — bail if the track is no longer wanted
         // or if a parallel attach already won.
@@ -130,14 +152,24 @@ final class MixingController: ObservableObject {
     }
 
     private func detach(id: String) {
+        // Cancel any in-flight attach for this id so a slow `prepare()` can't race
+        // us and re-attach after we tore the entry down.
+        if let task = attaching.removeValue(forKey: id) {
+            task.cancel()
+        }
         guard let entry = attached.removeValue(forKey: id) else { return }
         if entry.started {
             entry.source.stop()
         }
+        // Disconnect node output BEFORE detaching. Detaching while the engine is
+        // still wired to (and pulling buffers from) the node produces intermittent
+        // -10878 faults from the audio render thread.
         if entry.source.node.engine != nil {
+            engine.disconnectNodeOutput(entry.source.node)
             engine.detach(entry.source.node)
         }
         if entry.trackMixer.engine != nil {
+            engine.disconnectNodeOutput(entry.trackMixer)
             engine.detach(entry.trackMixer)
         }
     }
@@ -152,6 +184,11 @@ final class MixingController: ObservableObject {
         for id in Array(attached.keys) {
             detach(id: id)
         }
+        // `detach(id:)` only cancels in-flight attach Tasks for tracks that were
+        // also attached. Anything still mid-prepare needs an explicit cancel here,
+        // otherwise it'll complete after sleep and re-start the engine.
+        for (_, task) in attaching { task.cancel() }
+        attaching.removeAll()
         if engine.isRunning { engine.pause() }
     }
 

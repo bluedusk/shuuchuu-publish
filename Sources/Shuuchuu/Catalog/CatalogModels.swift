@@ -86,7 +86,7 @@ struct Track: Codable, Equatable, Identifiable {
     }
 }
 
-struct StreamedInfo: Equatable {
+struct StreamedInfo: Equatable, Sendable {
     let url: URL
     let sha256: String
     let bytes: Int64

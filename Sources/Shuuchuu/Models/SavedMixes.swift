@@ -30,7 +30,7 @@ final class SavedMixes: ObservableObject {
     private let defaults: UserDefaults
     private let storageKey: String
 
-    init(defaults: UserDefaults = .standard, storageKey: String = "x-noise.savedMixes") {
+    init(defaults: UserDefaults = .standard, storageKey: String = "shuuchuu.savedMixes") {
         self.defaults = defaults
         self.storageKey = storageKey
         load()

@@ -6,7 +6,7 @@ final class Favorites: ObservableObject {
     @Published private(set) var ids: Set<String>
 
     private let defaults: UserDefaults
-    private let key = "x-noise.favorites"
+    private let key = "shuuchuu.favorites"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

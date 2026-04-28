@@ -10,7 +10,7 @@ struct SoundtracksTab: View {
     @State private var addingMode = false
     @State private var expandedRowId: WebSoundtrack.ID?
 
-    private static let hintFlagKey = "x-noise.hasSeenSpotifyLoginHint"
+    private static let hintFlagKey = "shuuchuu.hasSeenSpotifyLoginHint"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,7 +33,7 @@ struct SoundtracksTab: View {
                                 soundtrack: entry,
                                 isActive: model.mode == .soundtrack(entry.id),
                                 isExpanded: expandedRowId == entry.id,
-                                controller: concreteController,
+                                controller: model.soundtrackController,
                                 pulseChevron: model.signInRequired && model.mode == .soundtrack(entry.id),
                                 onTap: { tapRow(entry) },
                                 onExpandToggle: { toggleExpand(entry) },
@@ -150,12 +150,4 @@ struct SoundtracksTab: View {
         }
     }
 
-    private var concreteController: WebSoundtrackController {
-        // Cast safe in production: AppModel is constructed with WebSoundtrackController.
-        // SoundtracksTab isn't rendered in tests (tests use the mock; no UI exercised).
-        guard let real = model.soundtrackController as? WebSoundtrackController else {
-            fatalError("SoundtracksTab requires a real WebSoundtrackController")
-        }
-        return real
-    }
 }

@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 /// User's saved soundtracks library. Persisted to UserDefaults under
-/// `x-noise.savedSoundtracks` as a JSON array of `WebSoundtrack`.
+/// `shuuchuu.savedSoundtracks` as a JSON array of `WebSoundtrack`.
 @MainActor
 final class SoundtracksLibrary: ObservableObject {
     @Published private(set) var entries: [WebSoundtrack] = [] { didSet { persist() } }
@@ -10,7 +10,7 @@ final class SoundtracksLibrary: ObservableObject {
     private let defaults: UserDefaults
     private let storageKey: String
 
-    init(defaults: UserDefaults = .standard, storageKey: String = "x-noise.savedSoundtracks") {
+    init(defaults: UserDefaults = .standard, storageKey: String = "shuuchuu.savedSoundtracks") {
         self.defaults = defaults
         self.storageKey = storageKey
         load()

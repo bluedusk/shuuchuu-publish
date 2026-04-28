@@ -1,5 +1,6 @@
 import Foundation
-@testable import XNoise
+import SwiftUI
+@testable import Shuuchuu
 
 /// In-memory recorder. Tests assert against the call log.
 @MainActor
@@ -16,6 +17,7 @@ final class MockSoundtrackController: WebSoundtrackControlling {
 
     var onTitleChange: ((UUID, String) -> Void)?
     var onSignInRequired: ((UUID) -> Void)?
+    var onPlaybackError: ((UUID, Int) -> Void)?
 
     func load(_ soundtrack: WebSoundtrack, autoplay: Bool) {
         loadedId = soundtrack.id
@@ -36,6 +38,8 @@ final class MockSoundtrackController: WebSoundtrackControlling {
         loadedId = nil
         calls.append(.unload)
     }
+
+    func playerView() -> AnyView { AnyView(EmptyView()) }
 
     /// Test convenience — simulate the bridge firing a title-change event.
     func simulateTitleChange(title: String) {

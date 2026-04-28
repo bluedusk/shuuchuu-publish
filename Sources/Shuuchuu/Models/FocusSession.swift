@@ -110,6 +110,7 @@ final class FocusSession: ObservableObject {
 
 /// Durations / counts for the pomodoro. Mirrors the design's Settings page.
 final class FocusSettings: ObservableObject {
+    @Published var pomodoroEnabled: Bool { didSet { defaults.set(pomodoroEnabled, forKey: K.pomodoroEnabled) } }
     @Published var focusMin: Int       { didSet { defaults.set(focusMin, forKey: K.focus) } }
     @Published var shortBreakMin: Int  { didSet { defaults.set(shortBreakMin, forKey: K.shortBreak) } }
     @Published var longBreakMin: Int   { didSet { defaults.set(longBreakMin, forKey: K.longBreak) } }
@@ -126,6 +127,7 @@ final class FocusSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.pomodoroEnabled = (defaults.object(forKey: K.pomodoroEnabled) as? Bool) ?? true
         self.focusMin      = (defaults.object(forKey: K.focus) as? Int) ?? 25
         self.shortBreakMin = (defaults.object(forKey: K.shortBreak) as? Int) ?? 5
         self.longBreakMin  = (defaults.object(forKey: K.longBreak) as? Int) ?? 15
@@ -141,17 +143,18 @@ final class FocusSettings: ObservableObject {
     }
 
     private enum K {
-        static let focus         = "x-noise.focus.focusMin"
-        static let shortBreak    = "x-noise.focus.shortBreakMin"
-        static let longBreak     = "x-noise.focus.longBreakMin"
-        static let cycles        = "x-noise.focus.cycles"
-        static let fadeIn        = "x-noise.focus.fadeIn"
-        static let fadeOut       = "x-noise.focus.fadeOut"
-        static let pauseOnBreak  = "x-noise.focus.pauseOnBreak"
-        static let chime         = "x-noise.focus.chime"
-        static let breakReminder = "x-noise.focus.breakReminder"
-        static let launchAtLogin = "x-noise.focus.launchAtLogin"
-        static let menubarTimer  = "x-noise.focus.menubarTimer"
+        static let pomodoroEnabled = "shuuchuu.focus.pomodoroEnabled"
+        static let focus         = "shuuchuu.focus.focusMin"
+        static let shortBreak    = "shuuchuu.focus.shortBreakMin"
+        static let longBreak     = "shuuchuu.focus.longBreakMin"
+        static let cycles        = "shuuchuu.focus.cycles"
+        static let fadeIn        = "shuuchuu.focus.fadeIn"
+        static let fadeOut       = "shuuchuu.focus.fadeOut"
+        static let pauseOnBreak  = "shuuchuu.focus.pauseOnBreak"
+        static let chime         = "shuuchuu.focus.chime"
+        static let breakReminder = "shuuchuu.focus.breakReminder"
+        static let launchAtLogin = "shuuchuu.focus.launchAtLogin"
+        static let menubarTimer  = "shuuchuu.focus.menubarTimer"
     }
 }
 

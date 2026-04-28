@@ -21,7 +21,13 @@ final class StreamedNoiseSource: NoiseSource, @unchecked Sendable {
     }
 
     func prepare() async throws {
-        let localURL = try await cache.localURL(for: track)
+        guard case .streamed(let info) = track.kind else {
+            // StreamedNoiseSource only ever receives streamed tracks — a non-
+            // streamed Track here would be a wiring bug in `MixingController`.
+            assertionFailure("StreamedNoiseSource initialized with non-streamed track \(track.id)")
+            return
+        }
+        let localURL = try await cache.localURL(for: info)
         let file = try AVAudioFile(forReading: localURL)
         let buf = AVAudioPCMBuffer(
             pcmFormat: file.processingFormat,

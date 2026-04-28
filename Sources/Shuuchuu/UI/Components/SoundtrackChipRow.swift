@@ -1,17 +1,16 @@
 import SwiftUI
-import WebKit
-import AppKit
 
 /// Row for a single soundtrack on the Soundtracks tab. Shows logo, title, sub-line,
 /// active chip if this is the active soundtrack, and trailing `⌃`/`⋯` controls.
 ///
-/// When `isExpanded` is true (Task 17), the row embeds the live WKWebView from the
-/// `WebSoundtrackController` inline below the collapsed header row.
+/// When `isExpanded` is true, the row embeds the live player vended by the
+/// soundtrack controller via `playerView()` — the row itself doesn't know or care
+/// that the underlying implementation is a WKWebView, and never imports WebKit.
 struct SoundtrackChipRow: View {
     let soundtrack: WebSoundtrack
     let isActive: Bool
     let isExpanded: Bool
-    let controller: WebSoundtrackController
+    let controller: WebSoundtrackControlling
     let pulseChevron: Bool
     let onTap: () -> Void
     let onExpandToggle: () -> Void
@@ -25,11 +24,10 @@ struct SoundtrackChipRow: View {
             collapsedRow
 
             if isExpanded {
-                LiveSoundtrackEmbed(controller: controller)
+                controller.playerView()
                     .frame(height: 220)
                     .padding(.horizontal, 8)
                     .padding(.top, 8)
-                    .onDisappear { controller.reclaimWebView() }
 
                 HStack {
                     Spacer()
@@ -70,12 +68,12 @@ struct SoundtrackChipRow: View {
                         .font(.system(size: 12, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .xnText(.primary)
+                        .shText(.primary)
                     if isActive { activeChip }
                 }
                 Text(soundtrack.kind.rawValue)
                     .font(.system(size: 10.5))
-                    .xnText(.tertiary)
+                    .shText(.tertiary)
             }
 
             Spacer(minLength: 4)
@@ -123,19 +121,24 @@ struct SoundtrackChipRow: View {
         }
     }
 
+    @ViewBuilder
     private var providerGlyph: some View {
-        let symbol: String = soundtrack.kind == .youtube ? "play.rectangle.fill" : "music.note"
-        let tint: Color = soundtrack.kind == .youtube
-            ? Color(red: 1.00, green: 0.00, blue: 0.00)
-            : Color(red: 0.11, green: 0.73, blue: 0.33)
-        return RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(tint.opacity(0.18))
-            .frame(width: 26, height: 26)
-            .overlay(
-                Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(tint)
-            )
+        if let thumb = soundtrack.youtubeThumbnailURL {
+            YouTubeThumbnail(url: thumb, size: 32)
+        } else {
+            let symbol: String = soundtrack.kind == .youtube ? "play.rectangle.fill" : "music.note"
+            let tint: Color = soundtrack.kind == .youtube
+                ? Color(red: 1.00, green: 0.00, blue: 0.00)
+                : Color(red: 0.11, green: 0.73, blue: 0.33)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(tint.opacity(0.18))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Image(systemName: symbol)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(tint)
+                )
+        }
     }
 
     private var activeChip: some View {
@@ -162,32 +165,4 @@ struct SoundtrackChipRow: View {
                 lineWidth: isActive ? 1.5 : 1
             )
     }
-}
-
-/// SwiftUI host for the live WKWebView owned by `WebSoundtrackController`. When
-/// this representable appears, it pulls the web view out of the hidden window into
-/// a container view; on disappear (parent), the row calls `controller.reclaimWebView()`.
-struct LiveSoundtrackEmbed: NSViewRepresentable {
-    let controller: WebSoundtrackController
-
-    func makeNSView(context: Context) -> NSView {
-        let host = NSView()
-        host.wantsLayer = true
-        host.layer?.cornerRadius = 8
-        host.layer?.masksToBounds = true
-
-        let web = controller.hostedWebView
-        web.removeFromSuperview()
-        web.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(web)
-        NSLayoutConstraint.activate([
-            web.topAnchor.constraint(equalTo: host.topAnchor),
-            web.bottomAnchor.constraint(equalTo: host.bottomAnchor),
-            web.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            web.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-        ])
-        return host
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
 }

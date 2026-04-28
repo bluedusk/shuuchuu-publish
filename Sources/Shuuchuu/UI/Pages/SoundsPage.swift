@@ -29,10 +29,10 @@ struct SoundsPage: View {
                 Text("SOUNDS")
                     .font(.system(size: 12, weight: .semibold))
                     .kerning(0.72)
-                    .xnText(.secondary)
+                    .shText(.secondary)
                 Text(headerSubtitle)
                     .font(.system(size: 12))
-                    .xnText(.primary)
+                    .shText(.primary)
             }
             Spacer()
             saveButton
@@ -46,7 +46,7 @@ struct SoundsPage: View {
         Button { model.beginSaveMix() } label: {
             Text("Save mix")
                 .font(.system(size: 11, weight: .medium))
-                .xnText(.secondary)
+                .shText(.secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(

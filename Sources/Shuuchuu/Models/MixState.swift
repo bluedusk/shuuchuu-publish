@@ -23,14 +23,18 @@ struct MixTrack: Equatable, Codable, Identifiable {
 ///
 /// Persistence: only the sound list (id + volume) is written to disk. Per-track play/
 /// pause state is per-session — every launch starts with all tracks paused.
+/// Persist writes are debounced (200ms) so volume drags don't hammer UserDefaults at
+/// 60Hz; flushed on app sleep/quit via `flushPersist()`.
 @MainActor
 final class MixState: ObservableObject {
-    @Published private(set) var tracks: [MixTrack] = [] { didSet { persist() } }
+    @Published private(set) var tracks: [MixTrack] = [] { didSet { schedulePersist() } }
 
     private let defaults: UserDefaults
     private let storageKey: String
+    private var persistTask: Task<Void, Never>?
+    private static let persistDebounceMs: UInt64 = 200
 
-    init(defaults: UserDefaults = .standard, storageKey: String = "x-noise.savedMix") {
+    init(defaults: UserDefaults = .standard, storageKey: String = "shuuchuu.savedMix") {
         self.defaults = defaults
         self.storageKey = storageKey
         load()
@@ -72,14 +76,16 @@ final class MixState: ObservableObject {
         tracks[i].paused.toggle()
     }
 
-    /// Set every track's paused flag in one mutation.
+    /// Set every track's paused flag in one mutation. Builds a copy and assigns once
+    /// so didSet (and the published change) fires exactly once instead of N times.
     func setAllPaused(_ paused: Bool) {
+        var copy = tracks
         var changed = false
-        for i in tracks.indices where tracks[i].paused != paused {
-            tracks[i].paused = paused
+        for i in copy.indices where copy[i].paused != paused {
+            copy[i].paused = paused
             changed = true
         }
-        if changed { tracks = tracks } // force didSet/persist
+        if changed { tracks = copy }
     }
 
     /// Wholesale replacement (e.g. applying a preset). New tracks default to unpaused.
@@ -102,7 +108,27 @@ final class MixState: ObservableObject {
         let volume: Float
     }
 
-    private func persist() {
+    /// Coalesce mutation bursts (volume drags, batch toggles) into a single write.
+    /// Without this every slider tick at ~60Hz would JSON-encode the whole mix and
+    /// hit UserDefaults — measurable lag on the audio thread under contention.
+    private func schedulePersist() {
+        persistTask?.cancel()
+        persistTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.persistDebounceMs * 1_000_000)
+            if Task.isCancelled { return }
+            self?.persistNow()
+        }
+    }
+
+    /// Force any pending debounced write to land synchronously. Call from app
+    /// sleep/quit handlers so a pending mutation isn't lost.
+    func flushPersist() {
+        persistTask?.cancel()
+        persistTask = nil
+        persistNow()
+    }
+
+    private func persistNow() {
         let list = tracks.map { PersistedTrack(id: $0.id, volume: $0.volume) }
         guard let data = try? JSONEncoder().encode(list) else {
             assertionFailure("MixState: failed to encode list")
@@ -121,7 +147,7 @@ final class MixState: ObservableObject {
         // Legacy shape (had a wrapper object). One-time migration.
         else if let legacy = try? decoder.decode(LegacySnapshot.self, from: data) {
             tracks = legacy.tracks.map { MixTrack(id: $0.id, volume: $0.volume, paused: true) }
-            persist()
+            persistNow()
         }
     }
 

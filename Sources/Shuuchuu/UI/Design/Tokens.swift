@@ -5,16 +5,13 @@ import SwiftUI
 /// (Color §02 / Accent §03 / Theme §04 / Glass §07 / Typography §06).
 ///
 /// Views never re-mix accent or text colors — they call into here.
-enum XNTokens {
+enum SHTokens {
 
     // MARK: - Accent (§03)
     // One hue (0–360), four derived expressions at fixed L/C.
 
-    static func accent(hue: Double, theme: AppTheme = .dark) -> Color {
-        let isLight = (theme == .light)
-        return Color(oklchL: isLight ? 0.66 : 0.74,
-                     C:      isLight ? 0.18 : 0.14,
-                     H: hue)
+    static func accent(hue: Double) -> Color {
+        Color(oklchL: 0.74, C: 0.14, H: hue)
     }
 
     static func accentStrong(hue: Double) -> Color {
@@ -37,32 +34,21 @@ enum XNTokens {
     // Three opacities only. View asks for primary / secondary / tertiary.
     enum TextStop { case primary, secondary, tertiary }
 
-    /// Spec §02 originally specified near-black ink in light mode — but on translucent
-    /// glass over a colorful wallpaper that produces hard, illegible black text. We keep
-    /// white text in both themes; light mode raises glass opacity (§04 / §07) instead.
-    static func text(_ stop: TextStop, theme: AppTheme = .dark) -> Color {
-        let base: Color = .white
+    /// Per spec §02: white ink at three opacity stops. Dark-mode only.
+    static func text(_ stop: TextStop) -> Color {
         switch stop {
-        case .primary:   return base.opacity(0.92)
-        case .secondary: return base.opacity(0.62)
-        case .tertiary:  return base.opacity(0.40)
+        case .primary:   return Color.white.opacity(0.92)
+        case .secondary: return Color.white.opacity(0.62)
+        case .tertiary:  return Color.white.opacity(0.40)
         }
     }
 
     // MARK: - Surfaces (§02)
     enum Surface {
-        static func chip(theme: AppTheme = .dark) -> Color {
-            theme == .light ? Color.white.opacity(0.50) : Color.white.opacity(0.14)
-        }
-        static func recess(theme: AppTheme = .dark) -> Color {
-            theme == .light ? Color.black.opacity(0.06) : Color.black.opacity(0.18)
-        }
-        static func hover(theme: AppTheme = .dark) -> Color {
-            theme == .light ? Color.black.opacity(0.04) : Color.white.opacity(0.06)
-        }
-        static func stroke(theme: AppTheme = .dark) -> Color {
-            theme == .light ? Color.white.opacity(0.90) : Color.white.opacity(0.16)
-        }
+        static let chip:   Color = .white.opacity(0.14)
+        static let recess: Color = .black.opacity(0.18)
+        static let hover:  Color = .white.opacity(0.06)
+        static let stroke: Color = .white.opacity(0.16)
     }
 
     // MARK: - Glass (§07)
@@ -71,7 +57,6 @@ enum XNTokens {
         static let defaultBlur:    CGFloat = 34
         static let defaultOpacity: Double  = 0.13
         static let defaultStroke:  Double  = 0.16
-        static let lightOpacity:   Double  = 0.60   // light theme override
     }
 
     // MARK: - Geometry (§01)
@@ -94,7 +79,7 @@ enum XNTokens {
 
     // MARK: - Typography (§06)
     /// Locked 5-step scale: 11 / 12 / 13 / 22 / 56. No exceptions.
-    enum XNFont {
+    enum SHFont {
         /// 56pt SF Pro Display Ultra-Light — the focus timer. Only place this size is allowed.
         static let timer = Font.system(size: 56, weight: .ultraLight, design: .default)
             .monospacedDigit()

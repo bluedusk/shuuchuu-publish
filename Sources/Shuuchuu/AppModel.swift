@@ -50,6 +50,7 @@ final class AppModel: ObservableObject {
     /// In mix mode this property is unused — `state.anyPlaying` is the source of truth.
     @Published private(set) var soundtrackPaused: Bool = true
     @Published var signInRequired: Bool = false
+    @Published var soundtrackError: (id: WebSoundtrack.ID, code: Int)? = nil
 
     init(
         catalog: Catalog,
@@ -82,7 +83,7 @@ final class AppModel: ObservableObject {
         self.mixer.masterVolume = prefs.volume
 
         // Restore persisted mode (defaults to .idle if anything is missing).
-        if let data = defaults.data(forKey: "x-noise.audioMode"),
+        if let data = defaults.data(forKey: "shuuchuu.audioMode"),
            let restored = try? JSONDecoder().decode(AudioMode.self, from: data) {
             // If the persisted mode references a soundtrack id that's no longer in the
             // library, fall back to .idle (per spec §7).
@@ -93,6 +94,13 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // If we restored a soundtrack mode, prime the controller paused so the
+        // user can hit play without re-activating from the list.
+        if case .soundtrack(let id) = mode, let entry = soundtracksLibrary.entry(id: id) {
+            soundtrackController.load(entry, autoplay: false)
+            soundtrackPaused = true
+        }
+
         // Title updates from the bridge persist back to the library.
         soundtrackController.onTitleChange = { [weak self] id, title in
             self?.soundtracksLibrary.setTitle(id: id, title: title)
@@ -100,6 +108,10 @@ final class AppModel: ObservableObject {
 
         soundtrackController.onSignInRequired = { [weak self] _ in
             self?.signInRequired = true
+        }
+
+        soundtrackController.onPlaybackError = { [weak self] id, code in
+            self?.soundtrackError = (id, code)
         }
 
         // Auto break/focus transitions mirror to whichever audio source is active.
@@ -182,7 +194,9 @@ final class AppModel: ObservableObject {
 
     func setTrackVolume(_ trackId: String, _ v: Float) {
         state.setVolume(id: trackId, volume: v)
-        mixer.reconcileNow()
+        // Fast path: volume drags hit this 60Hz. A full reconcile would walk the
+        // mix twice per tick; setTrackVolume writes the trackMixer directly.
+        mixer.setTrackVolume(trackId, v)
         // Volume changes don't change mode — only structural changes do.
     }
 
@@ -324,6 +338,7 @@ final class AppModel: ObservableObject {
             return .failure(err)
         case .success(let parsed):
             let entry = soundtracksLibrary.add(parsed: parsed)
+            fetchYouTubeTitleIfNeeded(for: entry)
             switch mode {
             case .idle, .soundtrack:
                 activateSoundtrack(id: entry.id)
@@ -331,6 +346,21 @@ final class AppModel: ObservableObject {
                 break
             }
             return .success(entry)
+        }
+    }
+
+    /// Fire-and-forget oEmbed lookup so YouTube entries get a real title before
+    /// the bridge fires `titleChanged` (which only happens after playback starts).
+    private func fetchYouTubeTitleIfNeeded(for entry: WebSoundtrack) {
+        guard let videoId = entry.youtubeVideoId,
+              let url = URL(string: "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=\(videoId)&format=json") else { return }
+        Task { [weak self] in
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let title = json["title"] as? String else { return }
+                self?.soundtracksLibrary.setTitle(id: entry.id, title: title)
+            } catch {}
         }
     }
 
@@ -346,6 +376,7 @@ final class AppModel: ObservableObject {
         }
 
         mode = .soundtrack(id)
+        soundtrackError = nil
         soundtrackController.load(entry, autoplay: true)
         soundtrackPaused = false
     }
@@ -386,7 +417,7 @@ final class AppModel: ObservableObject {
 
     private func persistMode() {
         guard let data = try? JSONEncoder().encode(mode) else { return }
-        defaults.set(data, forKey: "x-noise.audioMode")
+        defaults.set(data, forKey: "shuuchuu.audioMode")
     }
 
     // MARK: - Navigation
@@ -409,6 +440,8 @@ final class AppModel: ObservableObject {
 
     func handleSleep() async {
         mixer.stopAll()
+        // Flush any debounced persist so a mid-drag volume isn't lost on sleep.
+        state.flushPersist()
         session.pause()
     }
 

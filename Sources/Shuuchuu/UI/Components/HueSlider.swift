@@ -8,12 +8,11 @@ struct HueSlider: View {
     @Binding var hue: Double            // 0…360
     var trackHeight: CGFloat = 6
     var thumbSize: CGFloat = 16
-    var theme: AppTheme = .dark
 
     @State private var width: CGFloat = 0
 
     private var rainbow: [Color] {
-        // Sample the hue circle at fixed L/C (matches XNTokens.accent values).
+        // Sample the hue circle at fixed L/C (matches SHTokens.accent values).
         stride(from: 0, through: 360, by: 30).map {
             Color(oklchL: 0.74, C: 0.14, H: Double($0))
         }
@@ -34,7 +33,7 @@ struct HueSlider: View {
 
             // Thumb — small circle filled with the current accent
             Circle()
-                .fill(XNTokens.accent(hue: hue, theme: theme))
+                .fill(SHTokens.accent(hue: hue))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.95), lineWidth: 2))
                 .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
                 .frame(width: thumbSize, height: thumbSize)

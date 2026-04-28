@@ -51,7 +51,7 @@ struct MixesView: View {
             Text(title)
                 .font(.system(size: 10, weight: .semibold))
                 .kerning(0.8)
-                .xnText(.tertiary)
+                .shText(.tertiary)
             Text("\(count)")
                 .font(.system(size: 10))
                 .foregroundStyle(.white.opacity(0.30))
@@ -65,7 +65,7 @@ struct MixesView: View {
         VStack(spacing: 4) {
             Text("No saved mixes yet")
                 .font(.system(size: 11))
-                .xnText(.tertiary)
+                .shText(.tertiary)
             Text("Build a mix on the Sounds tab and tap \"Save mix\"")
                 .font(.system(size: 10))
                 .foregroundStyle(.white.opacity(0.35))

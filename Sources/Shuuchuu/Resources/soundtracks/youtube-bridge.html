@@ -2,46 +2,71 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!-- Strict CSP. The bridge only needs an inline script and an iframe to YT.
+       'self' resolves to the loadHTMLString baseURL (https://www.youtube.com/). -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com https://www.youtube.com">
   <style>
     html, body { margin: 0; padding: 0; background: #000; height: 100%; }
-    #player { width: 100%; height: 100%; }
+    #player { width: 100%; height: 100%; border: 0; display: block; }
   </style>
 </head>
 <body>
-  <div id="player"></div>
+  <iframe id="player"
+          allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+          allowfullscreen></iframe>
   <script>
-    let player = null;
-    let pendingEmbedURL = null;
+    const iframe = document.getElementById('player');
+    let listeningSent = false;
+    let iframeReady = false;
+    let commandQueue = [];
 
     function send(type, payload) {
       try {
-        window.webkit.messageHandlers.xnoise.postMessage(
+        window.webkit.messageHandlers.shuuchuu.postMessage(
           Object.assign({type: type}, payload || {})
         );
       } catch (_e) {}
     }
 
-    window.bridge = {
-      load: function (embedURL) {
-        pendingEmbedURL = embedURL;
-        if (!player) return;
-        const videoId = extractVideoId(embedURL);
-        const listId = extractListId(embedURL);
-        if (listId) {
-          player.loadPlaylist({ list: listId, listType: 'playlist' });
-        } else if (videoId) {
-          player.loadVideoById(videoId);
-        }
-      },
-      play: function () { if (player) player.playVideo(); },
-      pause: function () { if (player) player.pauseVideo(); },
-      setVolume: function (v) {
-        if (player) player.setVolume(Math.max(0, Math.min(100, Math.round(v * 100))));
-      },
-    };
+    // The iframe always loads on youtube-nocookie. Targeting the explicit origin
+    // (rather than '*') means our control messages can never leak to a different
+    // origin if the iframe is somehow navigated mid-flight.
+    const PLAYER_ORIGIN = 'https://www.youtube-nocookie.com';
+
+    // PostMessage to a not-yet-loaded iframe is dropped silently. Queue
+    // commands until the iframe load event fires, then drain.
+    function postToPlayer(func, args) {
+      if (!iframeReady) { commandQueue.push([func, args]); return; }
+      try {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: func, args: args || [] }),
+          PLAYER_ORIGIN
+        );
+      } catch (_e) {}
+    }
+
+    function flushCommandQueue() {
+      const q = commandQueue;
+      commandQueue = [];
+      for (const [f, a] of q) postToPlayer(f, a);
+    }
+
+    // YouTube only emits infoDelivery / state events after we send a
+    // 'listening' handshake.
+    function startListening() {
+      if (listeningSent) return;
+      listeningSent = true;
+      try {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'listening', id: 'shuuchuu', channel: 'widget' }),
+          PLAYER_ORIGIN
+        );
+      } catch (_e) {}
+    }
 
     function extractVideoId(url) {
-      const m = url.match(/\/embed\/([^?]+)/);
+      const m = url.match(/\/embed\/([^?\/]+)/);
       if (!m) return null;
       const id = m[1];
       return id === 'videoseries' ? null : id;
@@ -51,28 +76,68 @@
       return m ? m[1] : null;
     }
 
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
-
-    window.onYouTubeIframeAPIReady = function () {
-      player = new YT.Player('player', {
-        height: '100%', width: '100%',
-        playerVars: { playsinline: 1, modestbranding: 1, rel: 0, autoplay: 0 },
-        events: {
-          onReady: function () {
-            send('ready');
-            if (pendingEmbedURL) window.bridge.load(pendingEmbedURL);
-          },
-          onStateChange: function (e) {
-            send('stateChange', { state: e.data });
-            const data = player.getVideoData && player.getVideoData();
-            if (data && data.title) send('titleChanged', { title: data.title });
-          },
-          onError: function (e) { send('error', { code: e.data }); }
+    window.bridge = {
+      load: function (embedURL) {
+        const videoId = extractVideoId(embedURL);
+        const listId  = extractListId(embedURL);
+        // youtube-nocookie host avoids tracking-cookie-blocks that some embed-
+        // restricted videos hit on the standard host.
+        const params = 'enablejsapi=1&autoplay=1&playsinline=1&modestbranding=1&rel=0';
+        let src;
+        if (listId) {
+          src = 'https://www.youtube-nocookie.com/embed/videoseries?list=' + listId + '&' + params;
+        } else if (videoId) {
+          src = 'https://www.youtube-nocookie.com/embed/' + videoId + '?' + params;
+        } else {
+          return;
         }
-      });
+        listeningSent = false;
+        iframeReady = false;
+        commandQueue = [];
+        iframe.src = src;
+      },
+      play: function () { postToPlayer('playVideo'); },
+      pause: function () { postToPlayer('pauseVideo'); },
+      setVolume: function (v) {
+        const pct = Math.max(0, Math.min(100, Math.round(v * 100)));
+        postToPlayer('setVolume', [pct]);
+      },
     };
+
+    iframe.addEventListener('load', function () {
+      startListening();
+      iframeReady = true;
+      flushCommandQueue();
+    });
+
+    window.addEventListener('message', function (e) {
+      // Origin filter alone is satisfied by nested iframes (e.g. ad iframes
+      // hosted on the same parent origin). Tying source to the player iframe
+      // guarantees only the player can drive our message handler.
+      if (e.source !== iframe.contentWindow) return;
+      if (e.origin !== 'https://www.youtube-nocookie.com' &&
+          e.origin !== 'https://www.youtube.com') return;
+      let data = e.data;
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch (_) { return; }
+      }
+      if (!data || !data.event) return;
+      switch (data.event) {
+        case 'onStateChange':
+          send('stateChange', { state: data.info });
+          break;
+        case 'onError':
+          send('error', { code: data.info });
+          break;
+        case 'infoDelivery':
+          if (data.info && data.info.videoData && data.info.videoData.title) {
+            send('titleChanged', { title: data.info.videoData.title });
+          }
+          break;
+      }
+    });
+
+    send('ready');
   </script>
 </body>
 </html>

@@ -15,18 +15,23 @@ struct MixChipRow: View {
     private var icon: TrackIcon { TrackIconMap.icon(for: track.id) }
     private var dim: Bool { paused }
 
+    /// Dark scrim so white text stays legible regardless of which wallpaper is showing through.
+    private var chipScrim: Color {
+        Color.black.opacity(isHovered ? 0.22 : 0.16)
+    }
+
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: icon.symbol)
                 .font(.system(size: 14, weight: .light))
                 .frame(width: 22, height: 22)
-                .xnText(dim ? .tertiary : .primary)
+                .shText(dim ? .tertiary : .primary)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track.name)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
-                    .xnText(dim ? .tertiary : .primary)
+                    .shText(dim ? .tertiary : .primary)
                 ThumblessSlider(
                     value: Binding(get: { Double(volume) }, set: { onVolumeChange(Float($0)) }),
                     tint: Color.white.opacity(0.55)
@@ -59,7 +64,7 @@ struct MixChipRow: View {
         .padding(7)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(isHovered ? 0.055 : 0.035))
+                .fill(chipScrim)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)

@@ -10,12 +10,17 @@ struct SettingsPage: View {
             header
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    sessionSection
-                    soundSection
-                    notificationsSection
+                    focusModeSection
+                    if settings.pomodoroEnabled {
+                        sessionSection
+                        soundSection
+                        notificationsSection
+                    }
                     appSection
                     appearanceSection
-                    glassSection
+                    // glassSection  // dead: blur slider is unwired; opacity/stroke
+                                     // only affect the .glassChip modifier (used in
+                                     // 1 place). Re-enable after wiring + redesign.
                     footer
                 }
                 .padding(.horizontal, 16)
@@ -36,6 +41,21 @@ struct SettingsPage: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .overlay(Divider().opacity(0.3), alignment: .bottom)
+    }
+
+    private var focusModeSection: some View {
+        Group {
+            sectionLabel("Focus mode")
+            SettingRow(label: "Pomodoro timer") {
+                GlassToggle(
+                    isOn: Binding(
+                        get: { settings.pomodoroEnabled },
+                        set: { settings.pomodoroEnabled = $0 }
+                    ),
+                    accent: design.accent
+                )
+            }
+        }
     }
 
     private var sessionSection: some View {
@@ -116,8 +136,10 @@ struct SettingsPage: View {
             SettingRow(label: "Launch at login") {
                 GlassToggle(isOn: Binding(get: { settings.launchAtLogin }, set: { settings.launchAtLogin = $0 }), accent: design.accent)
             }
-            SettingRow(label: "Show timer in menubar") {
-                GlassToggle(isOn: Binding(get: { settings.menubarTimer }, set: { settings.menubarTimer = $0 }), accent: design.accent)
+            if settings.pomodoroEnabled {
+                SettingRow(label: "Show timer in menubar") {
+                    GlassToggle(isOn: Binding(get: { settings.menubarTimer }, set: { settings.menubarTimer = $0 }), accent: design.accent)
+                }
             }
             SettingRow(label: "Keyboard shortcut") {
                 Text("⌥⌘ N")
@@ -139,17 +161,16 @@ struct SettingsPage: View {
                 trailing: "\(Int(design.accentHue))°"
             ) {
                 HueSlider(
-                    hue: Binding(get: { design.accentHue }, set: { design.accentHue = $0 }),
-                    theme: design.resolvedTheme
+                    hue: Binding(get: { design.accentHue }, set: { design.accentHue = $0 })
                 )
 
                 // Spec §03 — six named presets.
                 HStack(spacing: 6) {
-                    ForEach(XNTokens.accentPresets, id: \.name) { preset in
+                    ForEach(SHTokens.accentPresets, id: \.name) { preset in
                         Button { design.accentHue = preset.hue } label: {
                             VStack(spacing: 4) {
                                 Circle()
-                                    .fill(XNTokens.accent(hue: preset.hue, theme: design.resolvedTheme))
+                                    .fill(SHTokens.accent(hue: preset.hue))
                                     .frame(width: 18, height: 18)
                                     .overlay(
                                         Circle().strokeBorder(
@@ -177,17 +198,13 @@ struct SettingsPage: View {
                     selection: Binding(get: { design.wallpaper }, set: { design.wallpaper = $0 })
                 )
             }
-
-            stackedRow(title: "Theme") {
-                radioRow(
-                    options: AppTheme.allCases,                       // system, dark, light
-                    label: { $0.rawValue.capitalized },
-                    selection: Binding(get: { design.theme }, set: { design.theme = $0 })
-                )
-            }
         }
     }
 
+    // Glass tuning panel — kept around for when the chip/panel styling needs
+    // user knobs again. Currently inert: glassBlur isn't wired to anything,
+    // and glassOpacity/glassStroke only affect the .glassChip modifier.
+    /*
     private var glassSection: some View {
         Group {
             sectionLabel("Glass")
@@ -226,6 +243,7 @@ struct SettingsPage: View {
             }
         }
     }
+    */
 
     @ViewBuilder
     private func stackedRow<Body: View>(
@@ -286,7 +304,7 @@ struct SettingsPage: View {
     private var footer: some View {
         Text("ShuuChuu 集中 · v1.0 · Quit ⌘Q")
             .font(.system(size: 11, weight: .regular))
-            .xnText(.tertiary)
+            .shText(.tertiary)
             .frame(maxWidth: .infinity)
             .padding(.top, 16)
             .padding(.bottom, 12)
@@ -297,7 +315,7 @@ struct SettingsPage: View {
         Text(title.uppercased())
             .font(.system(size: 12, weight: .semibold))
             .kerning(0.72)
-            .xnText(.secondary)
+            .shText(.secondary)
             .padding(.top, 10)
             .padding(.bottom, 4)
     }

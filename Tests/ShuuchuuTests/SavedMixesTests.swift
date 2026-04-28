@@ -1,5 +1,5 @@
 import XCTest
-@testable import XNoise
+@testable import Shuuchuu
 
 final class SavedMixesTests: XCTestCase {
     private func ephemeralDefaults() -> UserDefaults {

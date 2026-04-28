@@ -1,5 +1,5 @@
 import XCTest
-@testable import XNoise
+@testable import Shuuchuu
 
 final class DSPTests: XCTestCase {
     private let sampleRate: Double = 48000

@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "XNoise",
+    name: "Shuuchuu",
     platforms: [.macOS("26.0")],
     targets: [
         .executableTarget(
-            name: "XNoise",
-            path: "Sources/XNoise",
+            name: "Shuuchuu",
+            path: "Sources/Shuuchuu",
             exclude: ["Resources/Info.plist"],
             resources: [.process("Resources")],
             swiftSettings: [
@@ -18,14 +18,14 @@ let package = Package(
                     "-Xlinker", "-sectcreate",
                     "-Xlinker", "__TEXT",
                     "-Xlinker", "__info_plist",
-                    "-Xlinker", "Sources/XNoise/Resources/Info.plist",
+                    "-Xlinker", "Sources/Shuuchuu/Resources/Info.plist",
                 ]),
             ]
         ),
         .testTarget(
-            name: "XNoiseTests",
-            dependencies: ["XNoise"],
-            path: "Tests/XNoiseTests",
+            name: "ShuuchuuTests",
+            dependencies: ["Shuuchuu"],
+            path: "Tests/ShuuchuuTests",
             resources: [.process("Fixtures")]
         ),
     ]

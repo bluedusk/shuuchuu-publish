@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ShuuChuu (集中) is a macOS 26+ menubar app (Swift 6, SwiftUI) that plays categorized white-noise and ambient soundscapes layered as a multi-track mix, with a Liquid-Glass-styled popover and a pomodoro session timer. The repo and SPM target are still named `XNoise` for brevity.
+Shuuchuu (集中) is a macOS 26+ menubar app (Swift 6, SwiftUI) that plays categorized white-noise and ambient soundscapes layered as a multi-track mix, with a Liquid-Glass-styled popover and a pomodoro session timer. The repo working directory is still `~/playground/x-noise/` and the GitHub release repo is `bluedusk/x-noise` — the SPM target / Swift module / on-disk app are all `Shuuchuu`.
 
-Design spec and implementation plan live under `docs/superpowers/` — read them when making non-trivial changes, they cover decisions not recoverable from the code.
+Design spec and implementation plan live under `docs/superpowers/` — read them when making non-trivial changes, they cover decisions not recoverable from the code. (Older plans/specs reference the previous `XNoise`/`x-noise` names — those are frozen historical artifacts and intentionally weren't rewritten.)
 
 ## Build & run
 
@@ -14,28 +14,28 @@ It's an **SPM package**, not an Xcode project — there is no `.xcodeproj`.
 
 ```bash
 swift run                   # build (if needed) + launch
-swift build                 # debug build to .build/debug/XNoise
-swift build -c release      # release build to .build/release/XNoise
+swift build                 # debug build to .build/debug/Shuuchuu
+swift build -c release      # release build to .build/release/Shuuchuu
 swift test                  # run XCTest suites (DSP, Catalog, AudioCache, Preferences are current; AppModel/MixingController tests removed during the v2 rewrite — TODO restore)
 swift test --filter DSPTests
 swift test --filter AudioCacheTests/testLRUEviction
 ```
 
-To open in Xcode: `open -a Xcode Package.swift`. Xcode recognizes SPM packages directly; pick the `XNoise` scheme and "My Mac" destination.
+To open in Xcode: `open -a Xcode Package.swift`. Xcode recognizes SPM packages directly; pick the `Shuuchuu` scheme and "My Mac" destination.
 
-The app is `LSUIElement = true` — **no Dock icon, no main window**. After launch, look for the 集中 logo in the top-right menubar. To kill a stale instance: `pkill -x XNoise`.
+The app is `LSUIElement = true` — **no Dock icon, no main window**. After launch, look for the 集中 logo in the top-right menubar. To kill a stale instance: `pkill -x Shuuchuu`.
 
 **Bash session CWD drifts.** When running multi-step shell sequences via the Bash tool, prefer absolute paths or `cd /path && cmd` one-liners — a `cd` in one call leaks into the next, which silently broke a build during this session.
 
 ## Catalog regeneration
 
-Tracks and categories are declared in `Sources/XNoise/Resources/catalog.json`, generated from the filenames in `Sources/XNoise/Resources/sounds/`:
+Tracks and categories are declared in `Sources/Shuuchuu/Resources/catalog.json`, generated from the filenames in `Sources/Shuuchuu/Resources/sounds/`:
 
 ```bash
-python3 scripts/gen-catalog.py > Sources/XNoise/Resources/catalog.json
+python3 scripts/gen-catalog.py > Sources/Shuuchuu/Resources/catalog.json
 ```
 
-The generator hard-codes category assignments in its `CATEGORIES` list. When adding a new MP3, drop it into `Sources/XNoise/Resources/sounds/` and add its id (filename stem) to the right category in `scripts/gen-catalog.py`.
+The generator hard-codes category assignments in its `CATEGORIES` list. When adding a new MP3, drop it into `Sources/Shuuchuu/Resources/sounds/` and add its id (filename stem) to the right category in `scripts/gen-catalog.py`.
 
 Both `sounds/` and `catalog.json` are gitignored — they're treated as local content, not repo-owned.
 
@@ -43,17 +43,17 @@ Both `sounds/` and `catalog.json` are gitignored — they're treated as local co
 
 `AppModel` (`@MainActor, ObservableObject`) is the single orchestrator. It wires four subsystems and routes all user actions:
 
-- **`Catalog`** — fetches and decodes `catalog.json`; publishes a `loading | ready | offline | error` state with stale-while-revalidate semantics. Production uses `BundleCatalogFetcher` (reads from `Bundle.module`); tests inject stubs. Cached copy is persisted to `~/Library/Application Support/x-noise/catalog.json` for optimistic loads.
+- **`Catalog`** — fetches and decodes `catalog.json`; publishes a `loading | ready | offline | error` state with stale-while-revalidate semantics. Production uses `BundleCatalogFetcher` (reads from `Bundle.module`); tests inject stubs. Cached copy is persisted to `~/Library/Application Support/shuuchuu/catalog.json` for optimistic loads.
 - **`MixingController`** — one `AVAudioEngine` + master `AVAudioMixerNode`. Each active track is a separate `AVAudioPlayerNode` (or `AVAudioSourceNode` for procedural) attached to the mixer with its own per-node volume. Master volume is on `mixer.outputVolume`. Per-track pause via `pause(trackId:)` (player.pause, doesn't detach) so volume + buffer state survive. `pauseAll()`/`resumeAll()` is master-pause; independent of per-track state.
 - **`FocusSession` + `FocusSettings`** — pomodoro state (focus / short-break / long-break cycles) and persisted timing settings.
-- **`DesignSettings`** — accent hue (single source — derived expressions live in `XNTokens`), wallpaper mode, theme (system/dark/light), glass blur/opacity/stroke. Backed by UserDefaults.
+- **`DesignSettings`** — accent hue (single source — derived expressions live in `SHTokens`), wallpaper mode, theme (system/dark/light), glass blur/opacity/stroke. Backed by UserDefaults.
 - **`Favorites`** — persisted set of starred track ids.
 - **`AudioCache`** (SHA-256 keyed, LRU eviction) — used only by `StreamedNoiseSource`. The cache filename *is* the track's SHA-256 in the catalog, so path derivation and integrity verification are the same operation.
 - **`Preferences`** — thin `UserDefaults` wrapper for `volume`, `lastCategoryId`, `resumeOnWake`, `resumeOnLaunch`.
 
 Track playback is polymorphic via the `NoiseSource` protocol (`AnyObject & Sendable`), with three implementations dispatched by `Track.Kind` in the catalog:
 
-- **`ProceduralNoiseSource`** (`kind: "procedural"`) — wraps `AVAudioSourceNode` around a DSP kernel (`Sources/XNoise/Audio/DSP/*.swift` — white/pink/brown/green/fluorescent). No I/O, always `isReady = true`.
+- **`ProceduralNoiseSource`** (`kind: "procedural"`) — wraps `AVAudioSourceNode` around a DSP kernel (`Sources/Shuuchuu/Audio/DSP/*.swift` — white/pink/brown/green/fluorescent). No I/O, always `isReady = true`.
 - **`BundledNoiseSource`** (`kind: "bundled"`) — loads an MP3 from `Bundle.module` and schedules it on an `AVAudioPlayerNode` with `.loops`. This is the only kind currently used end-to-end.
 - **`StreamedNoiseSource`** (`kind: "streamed"`) — same as bundled but the file is fetched through `AudioCache` first. Infrastructure exists but nothing in the shipping catalog uses this kind yet; it's the designed R2 path for future distribution.
 
@@ -72,7 +72,7 @@ Track playback is polymorphic via the `NoiseSource` protocol (`AnyObject & Senda
 - **`.background(.material, in: Shape)` is reliable; `Rectangle().fill(.material)` in a ZStack background is not** — same crash class as above.
 - **`.contentShape(Rectangle())` must come AFTER `.clipShape(...)`.** A rounded clip strips hit-test from the corners; contentShape after re-claims a full rect.
 - **SwiftUI gradients (`RadialGradient`/`LinearGradient`) don't claim hit-testing.** Add a `Color` floor first in a ZStack if you need cursor capture in a gradient-only region.
-- **System `Slider` has a thumb + an extended hit region** that flips the cursor to ↔. For thin volume bars, use the custom `ThumblessSlider` / `MiniVolumeSlider` patterns in `Sources/XNoise/UI/Components/`.
+- **System `Slider` has a thumb + an extended hit region** that flips the cursor to ↔. For thin volume bars, use the custom `ThumblessSlider` / `MiniVolumeSlider` patterns in `Sources/Shuuchuu/UI/Components/`.
 - **`.scrollIndicators(.never)` is more aggressive than `.hidden`** — the latter still leaves a scroll-tracking area near content edges that flips the cursor to ↕ on macOS NSScrollView.
 - **`Button { action } label: { ... }` with `.buttonStyle(.plain)` last.** Modifiers chained after the Button (instead of inside the label) interact badly with custom backgrounds.
 - **Cursor weirdness over the popover is often the host app (Warp etc.) using `NSEvent.addGlobalMonitorForEvents`,** not our bug. Cursor management is independent of event delivery; events go to the topmost window but cursor shape is set by tracking areas across all windows.
@@ -83,13 +83,13 @@ Track playback is polymorphic via the `NoiseSource` protocol (`AnyObject & Senda
 
 ## Mix persistence
 
-The active mix (track ids, per-track volumes, paused state, master pause) is snapshotted to `UserDefaults` (`x-noise.savedMix`) on every mutation and restored on launch. Mutations must go through `AppModel` (`toggleTrack`, `setTrackVolume`, `removeTrack`, `togglePause`, `togglePlayAll`, `applyPreset`) — calling `MixingController` directly bypasses `persistMix()`.
+The active mix (track ids, per-track volumes, paused state, master pause) is snapshotted to `UserDefaults` (`shuuchuu.savedMix`) on every mutation and restored on launch. Mutations must go through `AppModel` (`toggleTrack`, `setTrackVolume`, `removeTrack`, `togglePause`, `togglePlayAll`, `applyPreset`) — calling `MixingController` directly bypasses `persistMix()`.
 
 ## Testing
 
-DSP, Catalog, AudioCache, Preferences, AppModel, and the noise source wrappers all have unit tests. UI is preview-only — there are no snapshot tests. When adding a new track kind or source type, add tests alongside the existing `*Tests.swift` files in `Tests/XNoiseTests/`.
+DSP, Catalog, AudioCache, Preferences, AppModel, and the noise source wrappers all have unit tests. UI is preview-only — there are no snapshot tests. When adding a new track kind or source type, add tests alongside the existing `*Tests.swift` files in `Tests/ShuuchuuTests/`.
 
-For tests that need an audio fixture, reuse `Tests/XNoiseTests/Fixtures/loop-1s.caf` (a 1-second 440Hz tone) or regenerate it with the Python + `afconvert` snippet shown in the implementation plan (`docs/superpowers/plans/2026-04-23-x-noise.md`, Task 10).
+For tests that need an audio fixture, reuse `Tests/ShuuchuuTests/Fixtures/loop-1s.caf` (a 1-second 440Hz tone) or regenerate it with the Python + `afconvert` snippet shown in the implementation plan (`docs/superpowers/plans/2026-04-23-x-noise.md`, Task 10).
 
 ## Explicitly out of scope (follow-ups, not bugs)
 

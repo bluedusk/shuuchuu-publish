@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Generate the bundled catalog.json that ships inside the app.
 
-Scans Sources/XNoise/Resources/sounds/ for MP3 files and produces a
+Scans Sources/Shuuchuu/Resources/sounds/ for MP3 files and produces a
 catalog document with `kind: "bundled"` entries. The app reads this
 file from its Bundle at launch — no HTTP server, no R2, no downloads.
 
 Run from project root:
-    python3 scripts/gen-catalog.py > Sources/XNoise/Resources/catalog.json
+    python3 scripts/gen-catalog.py > Sources/Shuuchuu/Resources/catalog.json
 """
 import argparse
 import json
@@ -92,7 +92,7 @@ def build(sounds_dir: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sounds-dir", default="Sources/XNoise/Resources/sounds")
+    ap.add_argument("--sounds-dir", default="Sources/Shuuchuu/Resources/sounds")
     args = ap.parse_args()
 
     doc = build(args.sounds_dir)

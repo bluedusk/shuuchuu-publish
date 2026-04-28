@@ -1,6 +1,6 @@
 import XCTest
 import AVFoundation
-@testable import XNoise
+@testable import Shuuchuu
 
 final class ProceduralNoiseSourceTests: XCTestCase {
     func testIsReadyImmediately() async throws {

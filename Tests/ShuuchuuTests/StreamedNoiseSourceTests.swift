@@ -1,7 +1,7 @@
 import XCTest
 import AVFoundation
 import CryptoKit
-@testable import XNoise
+@testable import Shuuchuu
 
 final class StreamedNoiseSourceTests: XCTestCase {
     private var tempDir: URL!
@@ -9,7 +9,7 @@ final class StreamedNoiseSourceTests: XCTestCase {
 
     override func setUp() async throws {
         tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("xnoise-streamed-\(UUID())")
+            .appendingPathComponent("shuuchuu-streamed-\(UUID())")
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     }
 
@@ -59,7 +59,7 @@ final class StreamedNoiseSourceTests: XCTestCase {
     }
 }
 
-private final class FixedDownloader: AudioDownloader {
+private final class FixedDownloader: AudioDownloader, @unchecked Sendable {
     let payload: Data
     init(payload: Data) { self.payload = payload }
     func download(from url: URL) async throws -> Data { payload }

@@ -1,5 +1,5 @@
 import XCTest
-@testable import XNoise
+@testable import Shuuchuu
 
 @MainActor
 final class AppModelSaveMixTests: XCTestCase {

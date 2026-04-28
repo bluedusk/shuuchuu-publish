@@ -1,5 +1,5 @@
 import XCTest
-@testable import XNoise
+@testable import Shuuchuu
 
 final class SmokeTests: XCTestCase {
     func testPackageLinks() {

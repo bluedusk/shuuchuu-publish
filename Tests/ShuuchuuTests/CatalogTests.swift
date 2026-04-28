@@ -1,12 +1,12 @@
 import XCTest
-@testable import XNoise
+@testable import Shuuchuu
 
 final class CatalogTests: XCTestCase {
     private var tempDir: URL!
 
     override func setUp() async throws {
         tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("xnoise-catalog-\(UUID())")
+            .appendingPathComponent("shuuchuu-catalog-\(UUID())")
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     }
 

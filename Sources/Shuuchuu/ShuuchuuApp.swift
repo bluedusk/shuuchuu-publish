@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct XNoiseApp: App {
+struct ShuuchuuApp: App {
     @StateObject private var model: AppModel
     @StateObject private var design: DesignSettings
 
@@ -40,7 +40,7 @@ extension AppModel {
         let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(Constants.audioCacheDirName)
         let appSupportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("x-noise")
+            .appendingPathComponent("shuuchuu")
         try? FileManager.default.createDirectory(at: appSupportDir, withIntermediateDirectories: true)
         let catalog = Catalog(
             fetcher: BundleCatalogFetcher(),

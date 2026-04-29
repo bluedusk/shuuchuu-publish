@@ -14,3 +14,6 @@ catalog.json
 
 # brainstorming visual companion cache (HTML mockups, server state)
 .superpowers/
+
+# git worktrees
+.worktrees/

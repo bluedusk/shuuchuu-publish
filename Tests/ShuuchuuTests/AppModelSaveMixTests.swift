@@ -21,12 +21,17 @@ final class AppModelSaveMixTests: XCTestCase {
         let mixer = MixingController(state: state, cache: cache, resolveTrack: { id in resolverBox.resolve?(id) })
         let catalog = Catalog(fetcher: BundleCatalogFetcher(),
                               cacheFile: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).json"))
+        let scenesLibrary = ScenesLibrary()
+        let stubRenderer = StubShaderRenderer()
         let model = AppModel(
             catalog: catalog, state: state, mixer: mixer, cache: cache,
             focusSettings: focusSettings, session: session, design: design,
             favorites: favorites, prefs: prefs, savedMixes: saved,
             soundtracksLibrary: SoundtracksLibrary(defaults: d),
-            soundtrackController: MockSoundtrackController()
+            soundtrackController: MockSoundtrackController(),
+            scenes: scenesLibrary,
+            shaderRenderer: stubRenderer,
+            scene: SceneController(library: scenesLibrary, renderer: stubRenderer)
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }
         return (model, saved)

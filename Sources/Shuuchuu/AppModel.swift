@@ -39,6 +39,9 @@ final class AppModel: ObservableObject {
     let savedMixes: SavedMixes
     let soundtracksLibrary: SoundtracksLibrary
     let soundtrackController: WebSoundtrackControlling
+    let scenes: ScenesLibrary
+    let shaderRenderer: ShaderRendering
+    let scene: SceneController
     private let defaults: UserDefaults
 
     @Published var page: AppPage = .focus
@@ -65,6 +68,9 @@ final class AppModel: ObservableObject {
         savedMixes: SavedMixes,
         soundtracksLibrary: SoundtracksLibrary,
         soundtrackController: WebSoundtrackControlling,
+        scenes: ScenesLibrary,
+        shaderRenderer: ShaderRendering,
+        scene: SceneController,
         defaults: UserDefaults = .standard
     ) {
         self.catalog = catalog
@@ -79,6 +85,9 @@ final class AppModel: ObservableObject {
         self.savedMixes = savedMixes
         self.soundtracksLibrary = soundtracksLibrary
         self.soundtrackController = soundtrackController
+        self.scenes = scenes
+        self.shaderRenderer = shaderRenderer
+        self.scene = scene
         self.defaults = defaults
         self.mixer.masterVolume = prefs.volume
 

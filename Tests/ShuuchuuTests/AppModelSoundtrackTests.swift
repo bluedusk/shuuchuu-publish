@@ -29,11 +29,16 @@ final class AppModelSoundtrackTests: XCTestCase {
         let savedMixes = SavedMixes(defaults: d)
         let library = SoundtracksLibrary(defaults: d)
         let mock = MockSoundtrackController()
+        let scenesLibrary = ScenesLibrary()
+        let stubRenderer = StubShaderRenderer()
         let model = AppModel(
             catalog: catalog, state: state, mixer: mixer, cache: cache,
             focusSettings: focusSettings, session: session, design: design,
             favorites: favorites, prefs: prefs, savedMixes: savedMixes,
             soundtracksLibrary: library, soundtrackController: mock,
+            scenes: scenesLibrary,
+            shaderRenderer: stubRenderer,
+            scene: SceneController(library: scenesLibrary, renderer: stubRenderer),
             defaults: d
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }

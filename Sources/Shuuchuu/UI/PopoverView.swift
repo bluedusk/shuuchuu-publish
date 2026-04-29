@@ -8,8 +8,17 @@ struct PopoverView: View {
 
     var body: some View {
         ZStack {
+            // SceneBackground draws first so Wallpaper sits on top of it.
+            // AppModel stores ShaderRendering for testability; in production it's always ShaderRenderer.
+            SceneBackground(renderer: model.shaderRenderer as! ShaderRenderer)
+                .frame(width: size.width, height: size.height)
+
             Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
+
+            SceneScrim()
+                .frame(width: size.width, height: size.height)
+                .opacity(model.scene.activeSceneId == nil ? 0 : 1)
 
             // Focus is always the base layer.
             FocusPage()
@@ -55,5 +64,7 @@ struct PopoverView: View {
         .environmentObject(model.favorites)
         .environmentObject(model.savedMixes)
         .environmentObject(model.soundtracksLibrary)
+        .environmentObject(model.scenes)
+        .environmentObject(model.scene)
     }
 }

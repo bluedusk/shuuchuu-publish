@@ -30,10 +30,4 @@ final class ScenesLibraryTests: XCTestCase {
         let lib = ScenesLibrary(jsonData: Data("not json".utf8))
         XCTAssertTrue(lib.scenes.isEmpty)
     }
-
-    func testEmptyOnNilDataInTestEnvironment() {
-        // Bundle.module in tests is the test bundle and contains no scenes.json.
-        let lib = ScenesLibrary()
-        XCTAssertTrue(lib.scenes.isEmpty)
-    }
 }

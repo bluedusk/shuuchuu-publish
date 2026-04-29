@@ -12,7 +12,7 @@ struct ShuuchuuApp: App {
         _model  = StateObject(wrappedValue: AppModel.live(design: d))
     }
 
-    var body: some Scene {
+    var body: some SwiftUI.Scene {
         MenuBarExtra {
             PopoverView()
                 .environmentObject(model)

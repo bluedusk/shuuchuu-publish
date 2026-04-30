@@ -12,5 +12,12 @@ sounds-staging/
 my_sounds/
 catalog.json
 
+# local dev content — shaders/scenes are not part of the repo
+Sources/Shuuchuu/Resources/shaders/
+Sources/Shuuchuu/Resources/scenes.json
+
 # brainstorming visual companion cache (HTML mockups, server state)
 .superpowers/
+
+# git worktrees
+.worktrees/

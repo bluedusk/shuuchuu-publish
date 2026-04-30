@@ -8,8 +8,19 @@ struct PopoverView: View {
 
     var body: some View {
         ZStack {
+            // Wallpaper is the base. When no scene is picked SceneBackground's host
+            // is empty and wallpaper shows through; when a scene is active the
+            // shader's MTKView fully covers it.
             Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
+
+            // AppModel stores ShaderRendering for testability; in production it's always ShaderRenderer.
+            SceneBackground(renderer: model.shaderRenderer as! ShaderRenderer)
+                .frame(width: size.width, height: size.height)
+
+            SceneScrim()
+                .frame(width: size.width, height: size.height)
+                .opacity(model.scene.activeSceneId == nil ? 0 : 1)
 
             // Focus is always the base layer.
             FocusPage()
@@ -55,5 +66,7 @@ struct PopoverView: View {
         .environmentObject(model.favorites)
         .environmentObject(model.savedMixes)
         .environmentObject(model.soundtracksLibrary)
+        .environmentObject(model.scenes)
+        .environmentObject(model.scene)
     }
 }

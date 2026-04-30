@@ -8,6 +8,8 @@ struct FocusPage: View {
     @EnvironmentObject var settings: FocusSettings
 
     @State private var settingsHover = false
+    @State private var sceneChipHover = false
+    @State private var scenePickerPresented = false
     @State private var ringHover = false
     @State private var playHover = false
     @State private var clearHover = false
@@ -42,6 +44,7 @@ struct FocusPage: View {
                 }
             }
             Spacer()
+            sceneChip                                // NEW
             Button(action: { model.goTo(.settings) }) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13, weight: .regular))
@@ -53,6 +56,31 @@ struct FocusPage: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
+    }
+
+    // MARK: - Scene chip
+
+    private var sceneChip: some View {
+        Button { scenePickerPresented = true } label: {
+            Image(systemName: "paintbrush.pointed")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(sceneChipHover ? Color.primary : Color.primary.opacity(0.45))
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { sceneChipHover = $0 }
+        .help("Scene")
+        .popover(isPresented: $scenePickerPresented, arrowEdge: .top) {
+            ScenePicker(
+                scenes: model.scenes.scenes,
+                activeId: model.scene.activeSceneId,
+                onSelect: { id in
+                    model.scene.setScene(id)
+                    scenePickerPresented = false
+                }
+            )
+        }
     }
 
     // MARK: - Hero ring (click to play/pause; reset & next reveal on hover)

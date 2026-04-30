@@ -1,0 +1,4 @@
+[
+  {"id":"plasma","title":"Plasma","thumbnail":"plasma.jpg","kind":"shader"},
+  {"id":"aurora","title":"Aurora","thumbnail":"aurora.jpg","kind":"shader"}
+]

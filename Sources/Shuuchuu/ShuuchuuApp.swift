@@ -12,7 +12,7 @@ struct ShuuchuuApp: App {
         _model  = StateObject(wrappedValue: AppModel.live(design: d))
     }
 
-    var body: some Scene {
+    var body: some SwiftUI.Scene {
         MenuBarExtra {
             PopoverView()
                 .environmentObject(model)
@@ -62,6 +62,12 @@ extension AppModel {
         let mixer = MixingController(state: state, cache: cache, resolveTrack: { id in
             resolverBox.resolve?(id)
         })
+        let scenesLibrary = ScenesLibrary()
+        guard let shaderRenderer = ShaderRenderer() else {
+            fatalError("ShaderRenderer init failed — no Metal device on this Mac")
+        }
+        let scene = SceneController(library: scenesLibrary,
+                                    renderer: shaderRenderer)
         let model = AppModel(
             catalog: catalog,
             state: state,
@@ -74,7 +80,10 @@ extension AppModel {
             prefs: prefs,
             savedMixes: savedMixes,
             soundtracksLibrary: soundtracksLibrary,
-            soundtrackController: soundtrackController
+            soundtrackController: soundtrackController,
+            scenes: scenesLibrary,
+            shaderRenderer: shaderRenderer,
+            scene: scene
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }
         return model

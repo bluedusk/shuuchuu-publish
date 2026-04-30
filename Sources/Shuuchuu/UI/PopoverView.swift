@@ -8,12 +8,14 @@ struct PopoverView: View {
 
     var body: some View {
         ZStack {
-            // SceneBackground draws first so Wallpaper sits on top of it.
-            // AppModel stores ShaderRendering for testability; in production it's always ShaderRenderer.
-            SceneBackground(renderer: model.shaderRenderer as! ShaderRenderer)
+            // Wallpaper is the base. When no scene is picked SceneBackground's host
+            // is empty and wallpaper shows through; when a scene is active the
+            // shader's MTKView fully covers it.
+            Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
 
-            Wallpaper(mode: design.wallpaper)
+            // AppModel stores ShaderRendering for testability; in production it's always ShaderRenderer.
+            SceneBackground(renderer: model.shaderRenderer as! ShaderRenderer)
                 .frame(width: size.width, height: size.height)
 
             SceneScrim()

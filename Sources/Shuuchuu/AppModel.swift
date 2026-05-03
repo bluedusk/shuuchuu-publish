@@ -44,6 +44,8 @@ final class AppModel: ObservableObject {
     let scenes: ScenesLibrary
     let shaderRenderer: ShaderRendering
     let scene: SceneController
+    let license: LicenseController
+    let updates: UpdateChecker
     private let defaults: UserDefaults
 
     @Published var page: AppPage = .focus
@@ -51,6 +53,12 @@ final class AppModel: ObservableObject {
     @Published var saveMode: SaveMode = .inactive
     @Published private(set) var currentlyLoadedMixId: AnyHashable?
     @Published var mode: AudioMode = .idle { didSet { persistMode() } }
+    /// Most recently active soundtrack id, retained when the user flips to mix
+    /// mode so a "Switch to soundtrack" link can resume it. Persisted so the
+    /// link survives relaunch.
+    @Published private(set) var lastSoundtrackId: WebSoundtrack.ID? {
+        didSet { persistLastSoundtrackId() }
+    }
     /// Tracks whether the active soundtrack is currently paused. Mirrors the bridge.
     /// In mix mode this property is unused — `state.anyPlaying` is the source of truth.
     @Published private(set) var soundtrackPaused: Bool = true
@@ -73,6 +81,8 @@ final class AppModel: ObservableObject {
         scenes: ScenesLibrary,
         shaderRenderer: ShaderRendering,
         scene: SceneController,
+        license: LicenseController,
+        updates: UpdateChecker,
         defaults: UserDefaults = .standard
     ) {
         self.catalog = catalog
@@ -90,8 +100,15 @@ final class AppModel: ObservableObject {
         self.scenes = scenes
         self.shaderRenderer = shaderRenderer
         self.scene = scene
+        self.license = license
+        self.updates = updates
         self.defaults = defaults
         self.mixer.masterVolume = prefs.volume
+
+        // Boot license state synchronously — must happen before the soundtrack
+        // restore check below (which reads `license.isUnlocked`) and before any
+        // SwiftUI surface reads `model.license.state`.
+        license.startTrialIfNeeded()
 
         // Restore persisted mode (defaults to .idle if anything is missing).
         if let data = defaults.data(forKey: "shuuchuu.audioMode"),
@@ -105,9 +122,23 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // Restore last-soundtrack target (for the "Switch to soundtrack" link).
+        // If invalid, fall back to the active soundtrack id (if any).
+        if let str = defaults.string(forKey: "shuuchuu.lastSoundtrackId"),
+           let id = UUID(uuidString: str),
+           soundtracksLibrary.entry(id: id) != nil {
+            self.lastSoundtrackId = id
+        } else if case .soundtrack(let id) = self.mode {
+            self.lastSoundtrackId = id
+        }
+
         // If we restored a soundtrack mode, prime the controller paused so the
-        // user can hit play without re-activating from the list.
-        if case .soundtrack(let id) = mode, let entry = soundtracksLibrary.entry(id: id) {
+        // user can hit play without re-activating from the list. Skip while locked —
+        // the LockedView covers Focus and we don't want a hidden web view fetching
+        // a YouTube/Spotify page behind it.
+        if case .soundtrack(let id) = mode,
+           let entry = soundtracksLibrary.entry(id: id),
+           license.isUnlocked {
             soundtrackController.load(entry, autoplay: false)
             soundtrackPaused = true
         }
@@ -151,12 +182,18 @@ final class AppModel: ObservableObject {
         // refresh when those sub-objects change.
         for forwarded in [session.objectWillChange,
                           focusSettings.objectWillChange,
-                          state.objectWillChange] {
+                          state.objectWillChange,
+                          license.objectWillChange] {
             forwarded
                 .sink { [weak self] in self?.objectWillChange.send() }
                 .store(in: &forwardCancellables)
         }
     }
+
+    // MARK: - License gate
+
+    /// Centralised entitlement check used by every gated user-action method.
+    private var isLicensed: Bool { license.isUnlocked }
 
     // MARK: - Catalog
 
@@ -205,6 +242,7 @@ final class AppModel: ObservableObject {
     }
 
     func toggleTrack(_ track: Track) {
+        guard isLicensed else { return }
         if state.contains(track.id) {
             state.remove(id: track.id)
         } else {
@@ -215,6 +253,7 @@ final class AppModel: ObservableObject {
     }
 
     func setTrackVolume(_ trackId: String, _ v: Float) {
+        guard isLicensed else { return }
         state.setVolume(id: trackId, volume: v)
         // Fast path: volume drags hit this 60Hz. A full reconcile would walk the
         // mix twice per tick; setTrackVolume writes the trackMixer directly.
@@ -229,12 +268,14 @@ final class AppModel: ObservableObject {
     }
 
     func togglePause(trackId: String) {
+        guard isLicensed else { return }
         state.togglePaused(id: trackId)
         mixer.reconcileNow()
     }
 
     /// Pause or resume whichever source is active. No-op in `.idle`.
     func pauseActiveSource(_ paused: Bool) {
+        guard isLicensed else { return }
         switch mode {
         case .idle:
             return
@@ -248,10 +289,12 @@ final class AppModel: ObservableObject {
     }
 
     func togglePlayAll() {
+        guard isLicensed else { return }
         pauseActiveSource(!activeSourcePaused)
     }
 
     func applyPreset(_ preset: Preset) {
+        guard isLicensed else { return }
         let newTracks = preset.mix
             .filter { $0.value >= 0.02 }
             .map { MixTrack(id: $0.key, volume: $0.value, paused: false) }
@@ -261,6 +304,7 @@ final class AppModel: ObservableObject {
     }
 
     func applySavedMix(_ mix: SavedMix) {
+        guard isLicensed else { return }
         let newTracks = mix.tracks.filter { $0.volume >= 0.02 }
         state.replace(with: newTracks)
         if !newTracks.isEmpty { enterMixMode() }
@@ -276,6 +320,7 @@ final class AppModel: ObservableObject {
     // MARK: - Save mix flow
 
     func beginSaveMix() {
+        guard isLicensed else { return }
         guard !state.isEmpty else { return }
         saveMode = .naming(text: "")
     }
@@ -355,6 +400,7 @@ final class AppModel: ObservableObject {
     /// `.soundtrack(other)` we auto-activate the new entry (the user just expressed
     /// intent to play something). From `.mix` we leave the mix alone.
     func addSoundtrack(rawURL: String) -> Result<WebSoundtrack, AddSoundtrackError> {
+        guard isLicensed else { return .failure(.unsupportedHost) }
         switch SoundtrackURL.parse(rawURL) {
         case .failure(let err):
             return .failure(err)
@@ -365,7 +411,9 @@ final class AppModel: ObservableObject {
             case .idle, .soundtrack:
                 activateSoundtrack(id: entry.id)
             case .mix:
-                break
+                // User added a soundtrack while keeping the mix running — make
+                // it the target of the "Switch to soundtrack" link.
+                lastSoundtrackId = entry.id
             }
             return .success(entry)
         }
@@ -387,6 +435,7 @@ final class AppModel: ObservableObject {
     }
 
     func activateSoundtrack(id: UUID) {
+        guard isLicensed else { return }
         guard let entry = soundtracksLibrary.entry(id: id) else { return }
         if case .soundtrack(let current) = mode, current == id { return }     // idempotent
 
@@ -398,6 +447,7 @@ final class AppModel: ObservableObject {
         }
 
         mode = .soundtrack(id)
+        lastSoundtrackId = id
         soundtrackError = nil
         soundtrackController.load(entry, autoplay: true)
         soundtrackPaused = false
@@ -421,12 +471,26 @@ final class AppModel: ObservableObject {
         mixer.reconcileNow()
     }
 
+    /// Triggered by the "Switch to soundtrack" link on the Focus page when in `.mix`.
+    /// Mirror of `switchToMix`: pauses the mix and activates the most recently used
+    /// soundtrack. No-op if `lastSoundtrackId` no longer resolves.
+    func switchToSoundtrack() {
+        guard isLicensed else { return }
+        guard mode == .mix,
+              let id = lastSoundtrackId,
+              soundtracksLibrary.entry(id: id) != nil else { return }
+        activateSoundtrack(id: id)
+    }
+
     func removeSoundtrack(id: UUID) {
         let wasActive = (mode == .soundtrack(id))
         soundtracksLibrary.remove(id: id)
         if wasActive {
             soundtrackController.unload()
             mode = .idle
+        }
+        if lastSoundtrackId == id {
+            lastSoundtrackId = nil
         }
     }
 
@@ -446,10 +510,24 @@ final class AppModel: ObservableObject {
         defaults.set(data, forKey: "shuuchuu.audioMode")
     }
 
+    private func persistLastSoundtrackId() {
+        if let id = lastSoundtrackId {
+            defaults.set(id.uuidString, forKey: "shuuchuu.lastSoundtrackId")
+        } else {
+            defaults.removeObject(forKey: "shuuchuu.lastSoundtrackId")
+        }
+    }
+
     // MARK: - Navigation
 
     func goTo(_ page: AppPage) {
         withAnimation(.smooth(duration: 0.32)) { self.page = page }
+    }
+
+    // MARK: - Updates
+
+    func triggerUpdateCheck() {
+        updates.checkForUpdates()
     }
 
     // MARK: - Lifecycle
@@ -459,6 +537,11 @@ final class AppModel: ObservableObject {
     func handleLaunch() async {
         guard !didLaunch else { return }
         didLaunch = true
+        // License state was bootstrapped synchronously in init; revalidate now if licensed.
+        if case .licensed = license.state {
+            Task { await license.revalidate() }
+        }
+        updates.startIfNeeded()
         await loadCatalog()
         // No restore step — MixState loaded itself from UserDefaults at init.
         // MixingController has already begun reconciling against it.

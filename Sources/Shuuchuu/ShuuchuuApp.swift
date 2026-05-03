@@ -17,6 +17,7 @@ struct ShuuchuuApp: App {
             PopoverView()
                 .environmentObject(model)
                 .environmentObject(design)
+                .environmentObject(model.updates)
                 .task { await model.handleLaunch() }
                 .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in
                     Task { await model.handleSleep() }
@@ -28,6 +29,7 @@ struct ShuuchuuApp: App {
             MenubarLabel()
                 .environmentObject(model)
                 .environmentObject(design)
+                .environmentObject(model.updates)
         }
         .menuBarExtraStyle(.window)
     }
@@ -68,6 +70,20 @@ extension AppModel {
         }
         let scene = SceneController(library: scenesLibrary,
                                     renderer: shaderRenderer)
+        // Native Keychain. Stable identity is supplied by `scripts/run`, which
+        // signs the binary with a persistent self-signed cert ("Shuuchuu Dev
+        // Signing Cert") so Keychain ACLs survive rebuilds.
+        let licenseStorage = LicenseStorage(
+            backend: KeychainLicenseBackend(service: Constants.License.keychainService)
+        )
+        let licenseClient = LemonSqueezyClient(apiBase: Constants.License.apiBase)
+        let license = LicenseController(
+            api: licenseClient,
+            storage: licenseStorage,
+            trialDuration: Constants.License.trialDuration,
+            activationLimit: Constants.License.activationLimit
+        )
+        let updates = UpdateChecker()
         let model = AppModel(
             catalog: catalog,
             state: state,
@@ -83,7 +99,9 @@ extension AppModel {
             soundtrackController: soundtrackController,
             scenes: scenesLibrary,
             shaderRenderer: shaderRenderer,
-            scene: scene
+            scene: scene,
+            license: license,
+            updates: updates
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }
         return model

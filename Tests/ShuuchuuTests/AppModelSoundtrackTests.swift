@@ -39,6 +39,8 @@ final class AppModelSoundtrackTests: XCTestCase {
             scenes: scenesLibrary,
             shaderRenderer: stubRenderer,
             scene: SceneController(library: scenesLibrary, renderer: stubRenderer),
+            license: makeTestLicense(),
+            updates: UpdateChecker(),
             defaults: d
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }

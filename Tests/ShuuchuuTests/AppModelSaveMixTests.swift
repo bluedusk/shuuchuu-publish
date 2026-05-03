@@ -31,7 +31,9 @@ final class AppModelSaveMixTests: XCTestCase {
             soundtrackController: MockSoundtrackController(),
             scenes: scenesLibrary,
             shaderRenderer: stubRenderer,
-            scene: SceneController(library: scenesLibrary, renderer: stubRenderer)
+            scene: SceneController(library: scenesLibrary, renderer: stubRenderer),
+            license: makeTestLicense(),
+            updates: UpdateChecker()
         )
         resolverBox.resolve = { [weak model] id in model?.findTrack(id: id) }
         return (model, saved)

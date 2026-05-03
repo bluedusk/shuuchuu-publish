@@ -21,3 +21,8 @@ Sources/Shuuchuu/Resources/scenes.json
 
 # git worktrees
 .worktrees/
+
+# release pipeline
+.env
+output/
+*.zip

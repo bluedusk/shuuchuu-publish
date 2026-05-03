@@ -25,7 +25,7 @@ struct SoundtracksTab: View {
             }
 
             if !pool.isEmpty {
-                TagChipBar(tags: pool, filter: filter)
+                TagChipBar(tags: pool)
             }
 
             ScrollView {
@@ -64,7 +64,9 @@ struct SoundtracksTab: View {
             .scrollIndicators(.never)
         }
         .onChange(of: pool) { _, newPool in
-            filter.reconcile(against: newPool)
+            DispatchQueue.main.async {
+                filter.reconcile(against: newPool)
+            }
         }
     }
 

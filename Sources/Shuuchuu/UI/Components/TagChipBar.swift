@@ -5,7 +5,7 @@ import SwiftUI
 /// empty.
 struct TagChipBar: View {
     let tags: [String]
-    @ObservedObject var filter: SoundtracksFilterState
+    @EnvironmentObject var filter: SoundtracksFilterState
     @EnvironmentObject var design: DesignSettings
 
     var body: some View {

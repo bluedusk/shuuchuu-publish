@@ -103,6 +103,14 @@ struct TagEditorStrip: View {
                 .focused($inputFocused)
                 .onSubmit(commit)
                 .onExitCommand { cancelEditing() }
+                .onKeyPress(.tab) {
+                    if let top = suggestions.first {
+                        draft = top
+                        commit()
+                        return .handled
+                    }
+                    return .ignored
+                }
                 .onChange(of: inputFocused) { _, focused in
                     if !focused { commit() }
                 }

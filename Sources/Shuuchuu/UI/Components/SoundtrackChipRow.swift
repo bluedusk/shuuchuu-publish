@@ -15,6 +15,8 @@ struct SoundtrackChipRow: View {
     let onTap: () -> Void
     let onExpandToggle: () -> Void
     let onDelete: () -> Void
+    let pool: [String]
+    let onTagsChange: ([String]) -> Void
 
     @EnvironmentObject var design: DesignSettings
     @State private var hovered = false
@@ -28,6 +30,12 @@ struct SoundtrackChipRow: View {
                     .frame(height: 220)
                     .padding(.horizontal, 8)
                     .padding(.top, 8)
+
+                TagEditorStrip(
+                    tags: soundtrack.tags,
+                    pool: pool,
+                    onChange: onTagsChange
+                )
 
                 HStack {
                     Spacer()
@@ -43,7 +51,7 @@ struct SoundtrackChipRow: View {
                         )
                 }
                 .padding(.horizontal, 8)
-                .padding(.top, 8)
+                .padding(.top, 4)
                 .padding(.bottom, 4)
             }
         }

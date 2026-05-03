@@ -1,9 +1,15 @@
+import AppKit
 import SwiftUI
 
 struct SettingsPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
     @EnvironmentObject var settings: FocusSettings
+    @EnvironmentObject var updates: UpdateChecker
+
+    @State private var betaTaps = 0
+    @State private var betaTapStarted: Date?
+    @State private var betaRevealed = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,6 +23,8 @@ struct SettingsPage: View {
                         notificationsSection
                     }
                     appSection
+                    updatesSection
+                    licenseSection
                     appearanceSection
                     // glassSection  // dead: blur slider is unwired; opacity/stroke
                                      // only affect the .glassChip modifier (used in
@@ -152,6 +160,93 @@ struct SettingsPage: View {
         }
     }
 
+    private var licenseSection: some View {
+        Group {
+            sectionLabel("License")
+            LicenseSettingsBlock()
+        }
+    }
+
+    private var updatesSection: some View {
+        Group {
+            sectionLabel("Updates")
+            SettingRow(label: "Version") {
+                Text(versionString)
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+                    .onTapGesture { handleVersionTap() }
+            }
+            if let last = updates.lastCheckDate {
+                SettingRow(label: "Last checked") {
+                    Text(last.formatted(.relative(presentation: .named)))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            SettingRow(label: "Check for updates") {
+                Button("Check now") { model.triggerUpdateCheck() }
+                    .buttonStyle(.glassProminent)
+                    .disabled(!updates.canCheckForUpdates)
+            }
+            SettingRow(label: "Automatically check") {
+                GlassToggle(
+                    isOn: Binding(
+                        get: { updates.automaticallyChecksForUpdates },
+                        set: { updates.automaticallyChecksForUpdates = $0 }
+                    ),
+                    accent: design.accent
+                )
+            }
+            SettingRow(label: "Auto-install in background") {
+                GlassToggle(
+                    isOn: Binding(
+                        get: { updates.automaticallyDownloadsUpdates },
+                        set: { updates.automaticallyDownloadsUpdates = $0 }
+                    ),
+                    accent: design.accent
+                )
+            }
+            SettingRow(label: "What's new") {
+                Button("Release notes") {
+                    NSWorkspace.shared.open(UpdateChecker.releasesURL)
+                }
+                .buttonStyle(.glass)
+            }
+            if betaRevealed {
+                SettingRow(label: "Beta updates") {
+                    GlassToggle(
+                        isOn: Binding(
+                            get: { UserDefaults.standard.bool(forKey: "app.betaUpdates") },
+                            set: { UserDefaults.standard.set($0, forKey: "app.betaUpdates") }
+                        ),
+                        accent: design.accent
+                    )
+                }
+            }
+        }
+    }
+
+    private var versionString: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(short) (\(build))"
+    }
+
+    private func handleVersionTap() {
+        let now = Date()
+        if let started = betaTapStarted, now.timeIntervalSince(started) > 3 {
+            betaTaps = 0
+        }
+        betaTapStarted = now
+        betaTaps += 1
+        if betaTaps >= 5 {
+            betaRevealed = true
+        }
+    }
+
     private var appearanceSection: some View {
         Group {
             sectionLabel("Appearance")
@@ -194,10 +289,12 @@ struct SettingsPage: View {
             stackedRow(title: "Wallpaper") {
                 radioRow(
                     options: WallpaperMode.allCases,
+                    rows: 2,
                     label: { $0.display.capitalized },
                     selection: Binding(get: { design.wallpaper }, set: { design.wallpaper = $0 })
                 )
             }
+
         }
     }
 
@@ -267,30 +364,42 @@ struct SettingsPage: View {
         .padding(.vertical, 8)
     }
 
+    private func radioChunks<Opt>(_ options: [Opt], rows: Int) -> [[Opt]] {
+        let perRow = max(Int((Double(options.count) / Double(rows)).rounded(.up)), 1)
+        return stride(from: 0, to: options.count, by: perRow).map {
+            Array(options[$0..<min($0 + perRow, options.count)])
+        }
+    }
+
     @ViewBuilder
     private func radioRow<Opt: Hashable>(
         options: [Opt],
+        rows: Int = 1,
         label: @escaping (Opt) -> String,
         selection: Binding<Opt>
     ) -> some View {
-        HStack(spacing: 4) {
-            ForEach(options, id: \.self) { opt in
-                let isOn = selection.wrappedValue == opt
-                Button { selection.wrappedValue = opt } label: {
-                    Text(label(opt))
-                        .font(.system(size: 10, weight: isOn ? .semibold : .regular))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .foregroundStyle(isOn ? Color.primary : .secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 6)
-                        .frame(maxWidth: .infinity)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color.white.opacity(isOn ? 0.18 : 0))
-                        )
+        VStack(spacing: 4) {
+            ForEach(Array(radioChunks(options, rows: rows).enumerated()), id: \.offset) { _, chunk in
+                HStack(spacing: 4) {
+                    ForEach(chunk, id: \.self) { opt in
+                        let isOn = selection.wrappedValue == opt
+                        Button { selection.wrappedValue = opt } label: {
+                            Text(label(opt))
+                                .font(.system(size: 10, weight: isOn ? .semibold : .regular))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                                .foregroundStyle(isOn ? Color.primary : .secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .fill(Color.white.opacity(isOn ? 0.18 : 0))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(3)

@@ -5,42 +5,40 @@ import SwiftUI
 struct MenubarLabel: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
+    @EnvironmentObject var updates: UpdateChecker
 
     var body: some View {
-        HStack(spacing: 5) {
-            // Logo — always visible
-            Text("集中")
+        // Single Text whose contents are computed reactively. Avoids structural
+        // changes to the MenuBarExtra label, which macOS can drop on remount.
+        HStack(spacing: 4) {
+            Text(labelString)
                 .font(.system(size: 13, weight: .medium))
-
-            if !model.state.isEmpty {
-                EqBars(color: design.accent)
-
-                if model.focusSettings.menubarTimer && model.session.isRunning {
-                    Text(timerString)
-                        .font(.system(size: 11, weight: .medium))
-                        .monospacedDigit()
-                } else if let label = mixLabel {
-                    Text(label)
-                        .font(.system(size: 11, weight: .medium))
-                        .lineLimit(1)
-                }
+                .monospacedDigit()
+                .opacity(model.session.isRunning ? 1.0 : 0.6)
+            if !model.license.isUnlocked {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            } else if updates.hasUpdate {
+                Circle()
+                    .fill(design.accent)
+                    .frame(width: 6, height: 6)
+                    .accessibilityLabel("Update available")
             }
         }
     }
 
-    private var timerString: String {
-        let r = model.session.remainingSec
-        return String(format: "%d:%02d", r / 60, r % 60)
+    private var labelString: String {
+        let prefix = (model.session.phase == .focus) ? "集中" : "休憩"
+        guard model.focusSettings.menubarTimer else { return prefix }
+        return "\(prefix) \(timerString)"
     }
 
-    /// Compact label for the current mix; nil when nothing meaningful to show.
-    private var mixLabel: String? {
-        let tracks = model.state.tracks
-        if tracks.isEmpty { return nil }
-        if tracks.count == 1, let t = model.findTrack(id: tracks[0].id) {
-            return t.name
-        }
-        return "\(tracks.count) sounds"
+    private var timerString: String {
+        // Show ceiling-of-minutes so the displayed value is the minute currently
+        // ticking down (e.g. 24:30 reads as "25m", flips to "24m" once it crosses).
+        let mins = (model.session.remainingSec + 59) / 60
+        return "\(mins)m"
     }
 }
 

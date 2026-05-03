@@ -11,6 +11,41 @@ struct WebSoundtrack: Identifiable, Codable, Equatable, Sendable {
     var title: String?
     var volume: Double      // 0.0–1.0 app scale; bridge converts per-provider
     let addedAt: Date
+    var tags: [String]
+
+    init(
+        id: UUID,
+        kind: SoundtrackURL.Kind,
+        url: String,
+        title: String?,
+        volume: Double,
+        addedAt: Date,
+        tags: [String] = []
+    ) {
+        self.id = id
+        self.kind = kind
+        self.url = url
+        self.title = title
+        self.volume = volume
+        self.addedAt = addedAt
+        self.tags = TagNormalize.normalize(list: tags)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, url, title, volume, addedAt, tags
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        kind = try c.decode(SoundtrackURL.Kind.self, forKey: .kind)
+        url = try c.decode(String.self, forKey: .url)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        volume = try c.decode(Double.self, forKey: .volume)
+        addedAt = try c.decode(Date.self, forKey: .addedAt)
+        let raw = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        tags = TagNormalize.normalize(list: raw)
+    }
 }
 
 extension WebSoundtrack {

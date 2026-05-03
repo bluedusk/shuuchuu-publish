@@ -6,6 +6,7 @@ struct SoundtracksTab: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var library: SoundtracksLibrary
     @EnvironmentObject var design: DesignSettings
+    @EnvironmentObject var filter: SoundtracksFilterState
 
     @State private var addingMode = false
     @State private var expandedRowId: WebSoundtrack.ID?
@@ -23,12 +24,18 @@ struct SoundtracksTab: View {
                 sectionHeader
             }
 
+            if !pool.isEmpty {
+                TagChipBar(tags: pool)
+            }
+
             ScrollView {
                 VStack(spacing: 8) {
                     if library.entries.isEmpty {
                         emptyCard
+                    } else if filter.isActive && filteredEntries.isEmpty {
+                        noMatchesCard
                     } else {
-                        ForEach(library.entries) { entry in
+                        ForEach(filteredEntries) { entry in
                             SoundtrackChipRow(
                                 soundtrack: entry,
                                 isActive: model.mode == .soundtrack(entry.id),
@@ -37,7 +44,11 @@ struct SoundtracksTab: View {
                                 pulseChevron: model.signInRequired && model.mode == .soundtrack(entry.id),
                                 onTap: { tapRow(entry) },
                                 onExpandToggle: { toggleExpand(entry) },
-                                onDelete: { model.removeSoundtrack(id: entry.id) }
+                                onDelete: { model.removeSoundtrack(id: entry.id) },
+                                pool: pool,
+                                onTagsChange: { tags in
+                                    model.setSoundtrackTags(id: entry.id, tags: tags)
+                                }
                             )
                         }
                     }
@@ -51,6 +62,11 @@ struct SoundtracksTab: View {
                 .padding(.bottom, 16)
             }
             .scrollIndicators(.never)
+        }
+        .onChange(of: pool) { _, newPool in
+            DispatchQueue.main.async {
+                filter.reconcile(against: newPool)
+            }
         }
     }
 
@@ -83,6 +99,15 @@ struct SoundtracksTab: View {
         .padding(.bottom, 6)
     }
 
+    // MARK: - Helpers
+
+    private var pool: [String] { library.tagsInUse }
+
+    private var filteredEntries: [WebSoundtrack] {
+        guard filter.isActive else { return library.entries }
+        return library.entries.filter { filter.matches(tags: $0.tags) }
+    }
+
     // MARK: - Empty state
 
     private var emptyCard: some View {
@@ -101,6 +126,22 @@ struct SoundtracksTab: View {
                 .strokeBorder(Color.white.opacity(0.12),
                               style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         )
+    }
+
+    private var noMatchesCard: some View {
+        VStack(spacing: 4) {
+            Text("No soundtracks match the selected tags")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.white.opacity(0.45))
+            Button(action: { filter.clear() }) {
+                Text("Clear filters")
+                    .font(.system(size: 10))
+                    .foregroundStyle(design.accent)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
     }
 
     // MARK: - Spotify hint

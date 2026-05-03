@@ -25,6 +25,7 @@ enum SaveMode: Equatable {
 final class AppModel: ObservableObject {
     @Published private(set) var categories: [Category] = []
     private var trackIndex: [String: Track] = [:]
+    private var forwardCancellables: Set<AnyCancellable> = []
 
     let catalog: Catalog
     let cache: AudioCache
@@ -38,6 +39,7 @@ final class AppModel: ObservableObject {
     let prefs: Preferences
     let savedMixes: SavedMixes
     let soundtracksLibrary: SoundtracksLibrary
+    let soundtracksFilter = SoundtracksFilterState()
     let soundtrackController: WebSoundtrackControlling
     let scenes: ScenesLibrary
     let shaderRenderer: ShaderRendering
@@ -143,6 +145,17 @@ final class AppModel: ObservableObject {
             }
             .receive(on: RunLoop.main)
             .assign(to: &$currentlyLoadedMixId)
+
+        // Re-publish nested ObservableObject changes (FocusSession, FocusSettings,
+        // MixState) so views observing only `model` — e.g. the MenuBarExtra label —
+        // refresh when those sub-objects change.
+        for forwarded in [session.objectWillChange,
+                          focusSettings.objectWillChange,
+                          state.objectWillChange] {
+            forwarded
+                .sink { [weak self] in self?.objectWillChange.send() }
+                .store(in: &forwardCancellables)
+        }
     }
 
     // MARK: - Catalog
@@ -422,6 +435,10 @@ final class AppModel: ObservableObject {
         if case .soundtrack(let active) = mode, active == id {
             soundtrackController.setVolume(volume)
         }
+    }
+
+    func setSoundtrackTags(id: UUID, tags: [String]) {
+        soundtracksLibrary.setTags(id: id, tags: tags)
     }
 
     private func persistMode() {

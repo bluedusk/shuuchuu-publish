@@ -47,6 +47,24 @@ final class SoundtracksLibrary: ObservableObject {
         entries[i].title = title
     }
 
+    func setTags(id: UUID, tags: [String]) {
+        guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[i].tags = TagNormalize.normalize(list: tags)
+    }
+
+    /// Union of tags in use across all soundtracks, sorted by usage count
+    /// (descending) with ties broken alphabetically.
+    var tagsInUse: [String] {
+        var counts: [String: Int] = [:]
+        for entry in entries {
+            for tag in entry.tags { counts[tag, default: 0] += 1 }
+        }
+        return counts.keys.sorted { lhs, rhs in
+            let lc = counts[lhs]!, rc = counts[rhs]!
+            return lc == rc ? lhs < rhs : lc > rc
+        }
+    }
+
     func entry(id: UUID) -> WebSoundtrack? {
         entries.first(where: { $0.id == id })
     }

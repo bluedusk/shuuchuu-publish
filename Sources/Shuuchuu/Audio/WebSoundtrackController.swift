@@ -124,6 +124,10 @@ final class WebSoundtrackController: NSObject, WebSoundtrackControlling {
         ])
         window.contentView = host
         window.orderBack(nil)
+
+        Task { @MainActor [webView] in
+            await YouTubeCookieSync.sync(into: webView.configuration.websiteDataStore.httpCookieStore)
+        }
     }
 
     // MARK: - WebSoundtrackControlling

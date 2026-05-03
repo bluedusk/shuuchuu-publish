@@ -45,10 +45,29 @@ struct SettingsPage: View {
             // Spec §06 title: 22pt SF Pro Display medium.
             Text("Settings").font(.system(size: 22, weight: .medium)).kerning(-0.33)
             Spacer()
+            if updates.hasUpdate, let version = updates.latestVersion {
+                updateBanner(version: version)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .overlay(Divider().opacity(0.3), alignment: .bottom)
+    }
+
+    private func updateBanner(version: String) -> some View {
+        Button { model.triggerUpdateCheck() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("\(version) available")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(design.accent))
+        }
+        .buttonStyle(.plain)
     }
 
     private var focusModeSection: some View {

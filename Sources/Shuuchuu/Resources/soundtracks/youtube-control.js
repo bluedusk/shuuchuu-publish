@@ -67,7 +67,10 @@
   let attempts = 0;
   const interval = setInterval(function () {
     attempts++;
-    applyPending();
+    if (applyPending()) {
+      clearInterval(interval);
+      return;
+    }
     if (attempts > 200) {       // 20s
       clearInterval(interval);
       send('error', { code: -2 });

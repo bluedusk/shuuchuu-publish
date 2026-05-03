@@ -49,6 +49,50 @@ final class SoundtrackPersistenceTests: XCTestCase {
         let data = try JSONEncoder().encode(original)
         XCTAssertEqual(try JSONDecoder().decode(AudioMode.self, from: data), original)
     }
+
+    func testWebSoundtrackTagsRoundTrip() throws {
+        let original = WebSoundtrack(
+            id: UUID(),
+            kind: .youtube,
+            url: "https://www.youtube.com/embed/abc?enablejsapi=1",
+            title: "lofi",
+            volume: 0.5,
+            addedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            tags: ["lo-fi", "study"]
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(WebSoundtrack.self, from: data)
+        XCTAssertEqual(decoded.tags, ["lo-fi", "study"])
+    }
+
+    func testWebSoundtrackDecodesMissingTagsAsEmpty() throws {
+        let json = """
+        {
+          "id":"11111111-2222-3333-4444-555555555555",
+          "kind":"youtube",
+          "url":"https://www.youtube.com/embed/abc?enablejsapi=1",
+          "volume":0.5,
+          "addedAt":700000000
+        }
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(WebSoundtrack.self, from: json)
+        XCTAssertEqual(decoded.tags, [])
+    }
+
+    func testWebSoundtrackDecodeClampsTagsToThree() throws {
+        let json = """
+        {
+          "id":"11111111-2222-3333-4444-555555555555",
+          "kind":"youtube",
+          "url":"https://www.youtube.com/embed/abc?enablejsapi=1",
+          "volume":0.5,
+          "addedAt":700000000,
+          "tags":["a","b","c","d","e"]
+        }
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(WebSoundtrack.self, from: json)
+        XCTAssertEqual(decoded.tags, ["a", "b", "c"])
+    }
 }
 
 extension SoundtrackPersistenceTests {

@@ -7,6 +7,30 @@ struct PopoverView: View {
     private let size = CGSize(width: 340, height: 540)
 
     var body: some View {
+        contentStack
+            .modifier(SystemGlassContainer(enabled: design.useSystemGlass))
+            .frame(width: size.width, height: size.height)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        // contentShape AFTER clipShape — otherwise the clipped rounded corners
+        // strip the hit-test region and events leak to the window underneath.
+        // This must be the *last* layout-affecting modifier before scene wiring.
+        .contentShape(Rectangle())
+        .onHover { _ in }            // forces a tracking area covering the full frame
+        .focusEffectDisabled()       // suppress system blue focus rings on every button in the popover
+        .preferredColorScheme(.dark)
+        .environmentObject(model.state)
+        .environmentObject(model.session)
+        .environmentObject(model.mixer)
+        .environmentObject(model.focusSettings)
+        .environmentObject(model.favorites)
+        .environmentObject(model.savedMixes)
+        .environmentObject(model.soundtracksLibrary)
+        .environmentObject(model.soundtracksFilter)
+        .environmentObject(model.scenes)
+        .environmentObject(model.scene)
+    }
+
+    private var contentStack: some View {
         ZStack {
             // Wallpaper is the base. When no scene is picked SceneBackground's host
             // is empty and wallpaper shows through; when a scene is active the
@@ -50,23 +74,19 @@ struct PopoverView: View {
                 .zIndex(1)
             }
         }
-        .frame(width: size.width, height: size.height)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        // contentShape AFTER clipShape — otherwise the clipped rounded corners
-        // strip the hit-test region and events leak to the window underneath.
-        // This must be the *last* layout-affecting modifier before scene wiring.
-        .contentShape(Rectangle())
-        .onHover { _ in }            // forces a tracking area covering the full frame
-        .focusEffectDisabled()       // suppress system blue focus rings on every button in the popover
-        .preferredColorScheme(.dark)
-        .environmentObject(model.state)
-        .environmentObject(model.session)
-        .environmentObject(model.mixer)
-        .environmentObject(model.focusSettings)
-        .environmentObject(model.favorites)
-        .environmentObject(model.savedMixes)
-        .environmentObject(model.soundtracksLibrary)
-        .environmentObject(model.scenes)
-        .environmentObject(model.scene)
+    }
+}
+
+/// Wraps content in a `GlassEffectContainer` when system Liquid Glass is enabled,
+/// allowing nested `.glassEffect()` surfaces to morph and merge.
+private struct SystemGlassContainer: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            GlassEffectContainer { content }
+        } else {
+            content
+        }
     }
 }

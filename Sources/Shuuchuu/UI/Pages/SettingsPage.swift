@@ -205,9 +205,16 @@ struct SettingsPage: View {
                 }
             }
             SettingRow(label: "Check for updates") {
-                Button("Check now") { model.triggerUpdateCheck() }
-                    .buttonStyle(.glassProminent)
-                    .disabled(!updates.canCheckForUpdates)
+                Button { model.triggerUpdateCheck() } label: {
+                    Text("Check now")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 7)
+                            .fill(design.accent.opacity(updates.canCheckForUpdates ? 1.0 : 0.4)))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .disabled(!updates.canCheckForUpdates)
             }
             SettingRow(label: "Automatically check") {
                 GlassToggle(
@@ -228,10 +235,18 @@ struct SettingsPage: View {
                 )
             }
             SettingRow(label: "What's new") {
-                Button("Release notes") {
+                Button {
                     NSWorkspace.shared.open(UpdateChecker.releasesURL)
+                } label: {
+                    Text("Release notes")
+                        .font(.system(size: 11, weight: .regular))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 7)
+                            .fill(Color.white.opacity(0.10))
+                            .overlay(RoundedRectangle(cornerRadius: 7)
+                                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)))
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.plain)
             }
             if betaRevealed {
                 SettingRow(label: "Beta updates") {

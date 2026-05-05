@@ -7,6 +7,9 @@ enum WallpaperMode: String, CaseIterable, Codable, Identifiable {
     case forest
     case sky
     case mono
+    case noir
+    case noirRed = "noir-red"
+    case midnight
     var id: String { rawValue }
     var display: String {
         switch self {
@@ -15,6 +18,9 @@ enum WallpaperMode: String, CaseIterable, Codable, Identifiable {
         case .forest: return "forest"
         case .sky:    return "sky"
         case .mono:   return "mono"
+        case .noir:    return "noir"
+        case .noirRed: return "noir red"
+        case .midnight: return "midnight"
         }
     }
 }

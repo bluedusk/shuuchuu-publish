@@ -46,6 +46,9 @@ struct Wallpaper: View {
         case .forest:      return (Color(oklchL: 0.40, C: 0.10, H: 160), Color(oklchL: 0.30, C: 0.08, H: 140))
         case .sky:         return (Color(oklchL: 0.42, C: 0.10, H: 235), Color(oklchL: 0.30, C: 0.08, H: 220))
         case .mono:        return (Color(oklchL: 0.25, C: 0.01, H: 260), Color(oklchL: 0.15, C: 0.01, H: 260))
+        case .noir:        return (Color(oklchL: 0.10, C: 0.00, H:   0), Color(oklchL: 0.04, C: 0.00, H:   0))
+        case .noirRed:     return (Color(oklchL: 0.08, C: 0.02, H:  25), Color(oklchL: 0.04, C: 0.00, H:   0))
+        case .midnight:    return (Color(oklchL: 0.12, C: 0.03, H: 250), Color(oklchL: 0.05, C: 0.02, H: 240))
         }
     }
 
@@ -87,6 +90,23 @@ struct Wallpaper: View {
             return [
                 Blob(color: Color(oklchL: 0.60, C: 0.02, H: 260), center: .init(x: 0.20, y: 0.30), radius: 260),
                 Blob(color: Color(oklchL: 0.70, C: 0.02, H: 260), center: .init(x: 0.80, y: 0.20), radius: 230),
+            ]
+        case .noir:
+            return [
+                Blob(color: Color(oklchL: 0.30, C: 0.00, H:   0), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.40, C: 0.00, H:   0), center: .init(x: 0.80, y: 0.20), radius: 230),
+            ]
+        case .noirRed:
+            return [
+                Blob(color: Color(oklchL: 0.50, C: 0.22, H:  25), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.55, C: 0.20, H:  15), center: .init(x: 0.80, y: 0.20), radius: 230),
+                Blob(color: Color(oklchL: 0.30, C: 0.02, H:   0), center: .init(x: 0.70, y: 0.80), radius: 260),
+            ]
+        case .midnight:
+            return [
+                Blob(color: Color(oklchL: 0.30, C: 0.04, H: 245), center: .init(x: 0.20, y: 0.30), radius: 260),
+                Blob(color: Color(oklchL: 0.35, C: 0.03, H: 230), center: .init(x: 0.80, y: 0.20), radius: 230),
+                Blob(color: Color(oklchL: 0.25, C: 0.05, H: 260), center: .init(x: 0.70, y: 0.80), radius: 260),
             ]
         }
     }

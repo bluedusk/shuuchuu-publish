@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RELEASE_REPO="bluedusk/x-noise"
+RELEASE_REPO="bluedusk/shuuchuu-publish"
 APP_NAME="Shuuchuu"
 PLIST="Sources/${APP_NAME}/Resources/Info.plist"
 

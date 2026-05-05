@@ -19,7 +19,7 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/bluedusk/x-noise/main/appcast.xml</string>
+    <string>https://raw.githubusercontent.com/bluedusk/shuuchuu-publish/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</string>
     <key>SUEnableAutomaticChecks</key>

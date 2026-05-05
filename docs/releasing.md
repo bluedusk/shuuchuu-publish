@@ -61,7 +61,7 @@ All releases must be run from main branch.
 2. **Update appcast.xml** — Adds a new `<item>` with EdDSA signature. Beta adds `sparkle:channel="beta"` attribute.
 3. **Stamp changelog** — Moves `[Unreleased]` to `[version] - date` in `CHANGELOG.md`
 4. **Commit & tag** — Commits appcast + changelog, creates `vX.Y.Z` tag. Beta pushes only the tag (not main). Stable pushes main + tag.
-5. **GitHub Release + round-trip verify** — Creates release on `bluedusk/x-noise` with DMG + ZIP, then `gh release download`s the DMG back from GitHub and asserts its SHA-256 matches the local upload. The downloaded SHA becomes the source of truth for step 6.
+5. **GitHub Release + round-trip verify** — Creates release on `bluedusk/shuuchuu-publish` with DMG + ZIP, then `gh release download`s the DMG back from GitHub and asserts its SHA-256 matches the local upload. The downloaded SHA becomes the source of truth for step 6.
 6. **Deploy appcast** — Pushes `appcast.xml` to `shuuchuu.app` website repo, deploys via `pnpm ship`. Skipped for beta (Sparkle reads it directly from the site).
 
 The release is not "done" until step 6 passes. There are no manual post-release checks to remember.
@@ -91,7 +91,7 @@ DMGs are not byte-deterministic — re-running `package-app.sh` produces a DMG w
 Recovery rules:
 
 - **Steps 1–4 failed** (build, appcast, changelog, commit/tag): safe to re-run from scratch. Nothing user-visible has shipped yet. If a tag was already pushed, delete it (`git push --delete origin vX.Y.Z` + `git tag -d vX.Y.Z`) before re-running.
-- **Step 5 failed** (GitHub release or round-trip verify): if the round-trip SHA mismatch fired, the release is corrupt — delete the release (`gh release delete vX.Y.Z --repo bluedusk/x-noise --yes --cleanup-tag`) and re-run from step 1.
+- **Step 5 failed** (GitHub release or round-trip verify): if the round-trip SHA mismatch fired, the release is corrupt — delete the release (`gh release delete vX.Y.Z --repo bluedusk/shuuchuu-publish --yes --cleanup-tag`) and re-run from step 1.
 - **Step 6 failed** (appcast deploy): re-run only step 6 (`pnpm ship` from the web repo, or re-invoke the gh-api PUT block from `release.sh`).
 
 ## Website (shuuchuu.app)
@@ -99,7 +99,7 @@ Recovery rules:
 The website lives in `~/playground/x-noise-web` (Astro, deployed to Cloudflare Pages via `pnpm ship`).
 
 **Download links:**
-- **Hero download button**: Uses `https://github.com/bluedusk/x-noise/releases/latest/download/Shuuchuu.dmg` — GitHub's `/latest/` redirect automatically resolves to the newest **non-pre-release**, so beta releases are excluded without any website changes.
+- **Hero download button**: Uses `https://github.com/bluedusk/shuuchuu-publish/releases/latest/download/Shuuchuu.dmg` — GitHub's `/latest/` redirect automatically resolves to the newest **non-pre-release**, so beta releases are excluded without any website changes.
 
 **For stable releases:** Redeploy the site so the version badge updates. This is part of the release — do it in the same session as `release.sh`.
 
@@ -176,17 +176,17 @@ Sparkle must be added to `Package.swift` as a binary target (`.binaryTarget` poi
 
 ## Architecture
 
-- **Release repo:** `bluedusk/x-noise` (public, GitHub releases)
-- **Development repo:** local / private
+- **Release repo:** `bluedusk/shuuchuu-publish` (public, GitHub releases — created 2026-05-04)
+- **Development repo:** local / private (working dir `~/playground/x-noise/`)
 - **Website repo:** `~/playground/x-noise-web` (Astro, Cloudflare Pages at shuuchuu.app)
 - **Appcast URL:** `https://shuuchuu.app/appcast.xml`
-- **Download URLs:** `https://github.com/bluedusk/x-noise/releases/download/vX.Y.Z/Shuuchuu.dmg`
+- **Download URLs:** `https://github.com/bluedusk/shuuchuu-publish/releases/download/vX.Y.Z/Shuuchuu.dmg`
 
 ## Infrastructure TODOs
 
 These need to be set up before the first release:
 
-- [ ] Create `bluedusk/x-noise` GitHub repo
+- [x] Create `bluedusk/shuuchuu-publish` GitHub repo (created 2026-05-04)
 - [ ] Add Sparkle as a binary dependency in `Package.swift`
 - [ ] Write `scripts/package-app.sh` (build release binary, assemble `.app`, sign, notarize, create DMG + ZIP)
 - [ ] Write `scripts/release.sh` (orchestrate all 6 steps)

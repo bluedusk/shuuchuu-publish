@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Shuuchuu (集中) is a macOS 26+ menubar app (Swift 6, SwiftUI) that plays categorized white-noise and ambient soundscapes layered as a multi-track mix, with a Liquid-Glass-styled popover and a pomodoro session timer. The repo working directory is still `~/playground/x-noise/` and the GitHub release repo is `bluedusk/x-noise` — the SPM target / Swift module / on-disk app are all `Shuuchuu`.
+Shuuchuu (集中) is a macOS 26+ menubar app (Swift 6, SwiftUI) that plays categorized white-noise and ambient soundscapes layered as a multi-track mix, with a Liquid-Glass-styled popover and a pomodoro session timer. The repo working directory is still `~/playground/x-noise/` and the GitHub release repo is `bluedusk/shuuchuu-publish` — the SPM target / Swift module / on-disk app are all `Shuuchuu`.
 
 Design spec and implementation plan live under `docs/superpowers/` — read them when making non-trivial changes, they cover decisions not recoverable from the code. (Older plans/specs reference the previous `XNoise`/`x-noise` names — those are frozen historical artifacts and intentionally weren't rewritten.)
 
@@ -114,7 +114,7 @@ LemonSqueezy-backed paywall (5-day trial, 3-device limit, soft revalidate). Live
 
 ## Releases
 
-In-app updates use Sparkle 2.9 (SPM dep). The appcast lives at `appcast.xml` (repo root) and is served via `https://raw.githubusercontent.com/bluedusk/x-noise/main/appcast.xml`. Binaries ship through GitHub Releases on `bluedusk/x-noise`.
+In-app updates use Sparkle 2.9 (SPM dep). The appcast lives at `appcast.xml` (repo root) and is served via `https://raw.githubusercontent.com/bluedusk/shuuchuu-publish/main/appcast.xml`. Binaries ship through GitHub Releases on `bluedusk/shuuchuu-publish`.
 
 To cut a release:
 

@@ -8,7 +8,7 @@
 #   SPARKLE_EDDSA_KEY      — base64 EdDSA private key
 #
 # Optional:
-#   GITHUB_REPO            — owner/repo (default: bluedusk/x-noise)
+#   GITHUB_REPO            — owner/repo (default: bluedusk/shuuchuu-publish)
 #   X_NOISE_RELEASE_NOTES  — markdown release notes (rendered as HTML)
 #   X_NOISE_BETA           — if "true", marks as beta channel
 
@@ -19,7 +19,7 @@ set -euo pipefail
 : "${X_NOISE_ZIP_PATH:?Missing X_NOISE_ZIP_PATH}"
 : "${SPARKLE_EDDSA_KEY:?Missing SPARKLE_EDDSA_KEY}"
 
-REPO="${GITHUB_REPO:-bluedusk/x-noise}"
+REPO="${GITHUB_REPO:-bluedusk/shuuchuu-publish}"
 APPCAST="appcast.xml"
 SIGN_UPDATE=$(find .build -name "sign_update" -type f | head -1)
 

@@ -11,7 +11,7 @@ import os
 /// Mirrors `Sources/xIslandApp/UpdateChecker.swift` from the x-island project.
 @MainActor
 final class UpdateChecker: NSObject, ObservableObject {
-    static let releasesURL = URL(string: "https://github.com/bluedusk/x-noise/releases")!
+    static let releasesURL = URL(string: "https://github.com/bluedusk/shuuchuu-publish/releases")!
 
     @Published private(set) var canCheckForUpdates = false
     @Published private(set) var hasUpdate = false

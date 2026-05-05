@@ -37,7 +37,7 @@ final class AppModelSoundtrackTests: XCTestCase {
             favorites: favorites, prefs: prefs, savedMixes: savedMixes,
             soundtracksLibrary: library, soundtrackController: mock,
             scenes: scenesLibrary,
-            shaderRenderer: stubRenderer,
+            shaderRenderer: nil,
             scene: SceneController(library: scenesLibrary, renderer: stubRenderer),
             license: makeTestLicense(),
             updates: UpdateChecker(),

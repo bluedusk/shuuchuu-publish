@@ -171,9 +171,9 @@ final class LicenseController: ObservableObject {
         return n
     }
 
-    /// Update the in-memory wall-clock floor. Does NOT hit the backend — see
-    /// `LicenseStorage.lastSeenWallclock` for why. Persistence happens at launch
-    /// and on `flushPersist()`, not on every tick.
+    /// Advance the wall-clock floor. The storage setter persists on first set
+    /// and after a fixed threshold (see `LicenseStorage.lastSeenWallclock`);
+    /// callers don't need to flush separately on the hot trial-tick path.
     private func bumpWallclock() {
         let n = now()
         if let floor = storage.lastSeenWallclock, floor > n { return }

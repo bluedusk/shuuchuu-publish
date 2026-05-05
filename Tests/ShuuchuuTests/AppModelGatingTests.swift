@@ -51,7 +51,7 @@ final class AppModelGatingTests: XCTestCase {
             soundtracksLibrary: library,
             soundtrackController: MockSoundtrackController(),
             scenes: scenesLibrary,
-            shaderRenderer: stubRenderer,
+            shaderRenderer: nil,
             scene: SceneController(library: scenesLibrary, renderer: stubRenderer),
             license: license,
             updates: UpdateChecker(),

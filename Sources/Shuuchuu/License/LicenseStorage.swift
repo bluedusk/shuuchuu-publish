@@ -32,6 +32,16 @@ final class LicenseStorage: @unchecked Sendable {
     private var _trialStartedAt: Date?
     private var _lastValidated: Date?
     private var _lastSeenWallclock: Date?
+    /// Last value we actually wrote to the backend. Used by the wallclock setter
+    /// to bound persist frequency without losing the rollback floor across a
+    /// force-quit (which never reaches `flushPersist`).
+    private var _lastPersistedWallclock: Date?
+
+    /// Persist the wallclock floor at most once per this interval. Trial timer
+    /// ticks at 60s; this gives us 10 ticks of memory-only churn between writes,
+    /// while still guaranteeing a force-quit-before-sleep loses at most 10 min
+    /// of rollback protection.
+    private static let wallclockPersistThreshold: TimeInterval = 600
 
     /// Serial queue: keychain writes happen here, never on main. Order is preserved.
     private let writeQueue = DispatchQueue(label: "shuuchuu.license.persist", qos: .utility)
@@ -44,6 +54,7 @@ final class LicenseStorage: @unchecked Sendable {
         self._trialStartedAt = Self.parseDate(backend.read(account: Key.trialStartedAt))
         self._lastValidated = Self.parseDate(backend.read(account: Key.lastValidated))
         self._lastSeenWallclock = Self.parseDate(backend.read(account: Key.lastSeenWallclock))
+        self._lastPersistedWallclock = self._lastSeenWallclock
     }
 
     var licenseKey: String? {
@@ -78,22 +89,44 @@ final class LicenseStorage: @unchecked Sendable {
         }
     }
 
-    /// Memory-only assignment for `lastSeenWallclock`. Persisting on every trial
-    /// timer tick (60s) was hammering the main-thread keychain subprocess and
-    /// causing visible stalls. The clock-rollback floor only needs to survive
-    /// a relaunch — call `persistWallclock()` at app launch / sleep boundaries.
+    /// Memory always updates. Persists to the backend on first set after launch
+    /// and after each `wallclockPersistThreshold` advance — so a force-quit
+    /// before any sleep still leaves a recent floor on disk to defeat clock
+    /// rollback. Frequency is bounded so 60s trial-timer ticks don't hammer
+    /// the keychain subprocess.
     var lastSeenWallclock: Date? {
         get { lock.lock(); defer { lock.unlock() }; return _lastSeenWallclock }
         set {
-            lock.lock(); _lastSeenWallclock = newValue; lock.unlock()
+            lock.lock()
+            _lastSeenWallclock = newValue
+            let shouldPersist: Bool
+            if let newValue {
+                if let last = _lastPersistedWallclock {
+                    shouldPersist = newValue.timeIntervalSince(last) >= Self.wallclockPersistThreshold
+                } else {
+                    shouldPersist = true
+                }
+                if shouldPersist { _lastPersistedWallclock = newValue }
+            } else {
+                shouldPersist = (_lastPersistedWallclock != nil)
+                _lastPersistedWallclock = nil
+            }
+            lock.unlock()
+            if shouldPersist {
+                enqueuePersistDate(newValue, account: Key.lastSeenWallclock)
+            }
         }
     }
 
-    /// Persist `lastSeenWallclock` to the backend on a background queue. Call
-    /// from launch/sleep, not the trial timer tick.
+    /// Force a persist regardless of threshold. Called at sleep boundaries —
+    /// the threshold-based path above already covers most cases, but sleep is
+    /// our last reliable opportunity before a possible cold relaunch.
     func persistWallclock() {
         let snapshot: Date?
-        lock.lock(); snapshot = _lastSeenWallclock; lock.unlock()
+        lock.lock()
+        snapshot = _lastSeenWallclock
+        _lastPersistedWallclock = snapshot
+        lock.unlock()
         enqueuePersistDate(snapshot, account: Key.lastSeenWallclock)
     }
 

@@ -136,15 +136,17 @@ struct FocusPage: View {
         .onHover { sceneChipHover = $0 }
         .help("Scene")
         .popover(isPresented: $scenePickerPresented, arrowEdge: .top) {
-            ScenePicker(
-                scenes: model.scenes.scenes,
-                activeId: model.scene.activeSceneId,
-                renderer: model.shaderRenderer as! ShaderRenderer,
-                onSelect: { id in
-                    model.scene.setScene(id)
-                    scenePickerPresented = false
-                }
-            )
+            if let renderer = model.shaderRenderer {
+                ScenePicker(
+                    scenes: model.scenes.scenes,
+                    activeId: model.scene.activeSceneId,
+                    renderer: renderer,
+                    onSelect: { id in
+                        model.scene.setScene(id)
+                        scenePickerPresented = false
+                    }
+                )
+            }
         }
     }
 

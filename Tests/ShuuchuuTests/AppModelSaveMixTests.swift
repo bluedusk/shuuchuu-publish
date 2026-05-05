@@ -30,7 +30,7 @@ final class AppModelSaveMixTests: XCTestCase {
             soundtracksLibrary: SoundtracksLibrary(defaults: d),
             soundtrackController: MockSoundtrackController(),
             scenes: scenesLibrary,
-            shaderRenderer: stubRenderer,
+            shaderRenderer: nil,
             scene: SceneController(library: scenesLibrary, renderer: stubRenderer),
             license: makeTestLicense(),
             updates: UpdateChecker()

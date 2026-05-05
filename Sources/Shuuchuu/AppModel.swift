@@ -41,7 +41,10 @@ final class AppModel: ObservableObject {
     let soundtracksFilter = SoundtracksFilterState()
     let soundtrackController: WebSoundtrackControlling
     let scenes: ScenesLibrary
-    let shaderRenderer: ShaderRendering
+    /// Optional because tests construct `AppModel` without wiring a Metal
+    /// renderer — they don't render UI. Production always supplies one;
+    /// `ShuuchuuApp.live` aborts startup if `ShaderRenderer()` returns nil.
+    let shaderRenderer: ShaderRenderer?
     let scene: SceneController
     let license: LicenseController
     let updates: UpdateChecker
@@ -78,7 +81,7 @@ final class AppModel: ObservableObject {
         soundtracksLibrary: SoundtracksLibrary,
         soundtrackController: WebSoundtrackControlling,
         scenes: ScenesLibrary,
-        shaderRenderer: ShaderRendering,
+        shaderRenderer: ShaderRenderer?,
         scene: SceneController,
         license: LicenseController,
         updates: UpdateChecker,

@@ -15,9 +15,10 @@ struct PopoverView: View {
             Wallpaper(mode: design.wallpaper)
                 .frame(width: size.width, height: size.height)
 
-            // AppModel stores ShaderRendering for testability; in production it's always ShaderRenderer.
-            SceneBackground(renderer: model.shaderRenderer as! ShaderRenderer)
-                .frame(width: size.width, height: size.height)
+            if let renderer = model.shaderRenderer {
+                SceneBackground(renderer: renderer)
+                    .frame(width: size.width, height: size.height)
+            }
 
             SceneScrim()
                 .frame(width: size.width, height: size.height)

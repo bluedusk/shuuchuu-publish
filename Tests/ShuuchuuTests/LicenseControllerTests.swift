@@ -214,6 +214,26 @@ final class LicenseControllerTests: XCTestCase {
         // still have ~1 day, not 5.
         XCTAssertLessThanOrEqual(c3.trialDaysRemaining, 1)
     }
+
+    /// Force-quit before any `flushPersist` call — the floor must still survive
+    /// because the storage setter persists on first set after launch.
+    func testWallclockFloorPersistsWithoutExplicitFlush() {
+        let (c1, t, _) = makeController()
+        c1.startTrialIfNeeded()
+        // Deliberately no flushPersist() — simulate force-quit.
+        c1.storage.flushPendingWrites()
+        let backend = c1.storage.backend
+
+        // Roll the clock back one day. Without a persisted floor the trial would
+        // appear to have one extra day; with the floor it stays clamped.
+        t.now = t.now.addingTimeInterval(-24 * 60 * 60)
+        let (c2, _, storage2) = makeController(backend: backend, nowProvider: t)
+        c2.startTrialIfNeeded()
+        XCTAssertNotNil(storage2.lastSeenWallclock,
+                        "first-launch setter must persist the floor without flushPersist")
+        XCTAssertEqual(c2.trialDaysRemaining, 5,
+                       "rollback against a persisted floor should not grant extra days")
+    }
 }
 
 // MARK: - Test helpers

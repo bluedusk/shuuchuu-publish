@@ -19,10 +19,10 @@ struct SettingsPage: View {
                     focusModeSection
                     if settings.pomodoroEnabled {
                         sessionSection
-                        soundSection
-                        notificationsSection
+                        // soundSection         // hidden — see definition below
+                        // notificationsSection // hidden — see definition below
                     }
-                    appSection
+                    // appSection  // hidden — see definition below
                     updatesSection
                     licenseSection
                     appearanceSection
@@ -112,6 +112,8 @@ struct SettingsPage: View {
                     accent: design.accent
                 )
             }
+            // Hidden — power-user knob, deferred.
+            /*
             SettingRow(label: "Sessions per cycle") {
                 Stepper(
                     value: Binding(get: { settings.cycles }, set: { settings.cycles = max(1, min(8, $0)) }),
@@ -122,9 +124,14 @@ struct SettingsPage: View {
                 }
                 .labelsHidden()
             }
+            */
         }
     }
 
+    // Hidden — overkill for a small menubar app. Underlying FocusSettings
+    // values still exist; re-enable by uncommenting both this and the call
+    // site in `body`.
+    /*
     private var soundSection: some View {
         Group {
             sectionLabel("Sound")
@@ -156,7 +163,10 @@ struct SettingsPage: View {
             }
         }
     }
+    */
 
+    // Hidden — entire section deferred for now.
+    /*
     private var appSection: some View {
         Group {
             sectionLabel("App")
@@ -168,6 +178,8 @@ struct SettingsPage: View {
                     GlassToggle(isOn: Binding(get: { settings.menubarTimer }, set: { settings.menubarTimer = $0 }), accent: design.accent)
                 }
             }
+            // Hidden — display-only label, not a control. Shortcut is ⌥⌘N.
+            /*
             SettingRow(label: "Keyboard shortcut") {
                 Text("⌥⌘ N")
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
@@ -176,8 +188,10 @@ struct SettingsPage: View {
                     .padding(.vertical, 2)
                     .glassChip(cornerRadius: 5, design: design)
             }
+            */
         }
     }
+    */
 
     private var licenseSection: some View {
         Group {
@@ -234,6 +248,8 @@ struct SettingsPage: View {
                     accent: design.accent
                 )
             }
+            // Hidden — release notes deferred.
+            /*
             SettingRow(label: "What's new") {
                 Button {
                     NSWorkspace.shared.open(UpdateChecker.releasesURL)
@@ -248,6 +264,7 @@ struct SettingsPage: View {
                 }
                 .buttonStyle(.plain)
             }
+            */
             if betaRevealed {
                 SettingRow(label: "Beta updates") {
                     GlassToggle(

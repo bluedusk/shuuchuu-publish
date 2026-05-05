@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct FocusPage: View {
     @EnvironmentObject var model: AppModel
@@ -6,6 +7,7 @@ struct FocusPage: View {
     @EnvironmentObject var session: FocusSession
     @EnvironmentObject var state: MixState
     @EnvironmentObject var settings: FocusSettings
+    @EnvironmentObject var license: LicenseController
 
     @State private var settingsHover = false
     @State private var sceneChipHover = false
@@ -14,6 +16,8 @@ struct FocusPage: View {
     @State private var playHover = false
     @State private var clearHover = false
     @State private var addHover = false
+
+    @State private var trialPillDismissed = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,8 +28,68 @@ struct FocusPage: View {
             }
             bottomRegion
             Spacer(minLength: 0)
+            modeSwitchLink
+            if shouldShowTrialPill { trialPill.padding(.bottom, 8) }
         }
         .padding(.bottom, 6)
+    }
+
+    /// Anchors the "Switch to …" link to the bottom of the popover so its Y
+    /// position is constant across `.mix` and `.soundtrack` regardless of how
+    /// tall the active region is.
+    @ViewBuilder
+    private var modeSwitchLink: some View {
+        switch model.mode {
+        case .mix where canSwitchToSoundtrack:
+            switchLink("Switch to soundtrack") { model.switchToSoundtrack() }
+                .padding(.bottom, 6)
+        case .soundtrack where canSwitchToMix:
+            switchLink("Switch to mix") { model.switchToMix() }
+                .padding(.bottom, 6)
+        default:
+            EmptyView()
+        }
+    }
+
+    /// Show the "Trial ends tomorrow · Buy" pill on day 4-5 of the trial.
+    private var shouldShowTrialPill: Bool {
+        guard !trialPillDismissed else { return false }
+        guard case .trial = license.state else { return false }
+        let days = license.trialDaysRemaining
+        return days <= 2 && days > 0
+    }
+
+    private var trialPill: some View {
+        let days = license.trialDaysRemaining
+        let label = days <= 1 ? "Trial ends today" : "Trial ends tomorrow"
+        return HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(.secondary)
+            Text("·").foregroundStyle(.tertiary)
+            Button { NSWorkspace.shared.open(Constants.License.storeURL) } label: {
+                Text("Buy")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(design.accent)
+            }
+            .buttonStyle(.plain)
+            Button {
+                withAnimation(.snappy(duration: 0.2)) { trialPillDismissed = true }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule().fill(Color.black.opacity(0.30))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+        )
+        .padding(.horizontal, 16)
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }
 
     // MARK: - Header (Focus / dots / ghost gear)
@@ -75,6 +139,7 @@ struct FocusPage: View {
             ScenePicker(
                 scenes: model.scenes.scenes,
                 activeId: model.scene.activeSceneId,
+                renderer: model.shaderRenderer as! ShaderRenderer,
                 onSelect: { id in
                     model.scene.setScene(id)
                     scenePickerPresented = false
@@ -179,6 +244,25 @@ struct FocusPage: View {
         }
     }
 
+    private var canSwitchToSoundtrack: Bool {
+        guard model.mode == .mix, let id = model.lastSoundtrackId else { return false }
+        return model.soundtracksLibrary.entry(id: id) != nil
+    }
+
+    private var canSwitchToMix: Bool { !state.isEmpty }
+
+    /// Shared style for the symmetric "Switch to …" links so both modes render
+    /// the link in the same structural slot at the bottom of `bottomRegion`.
+    private func switchLink(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.white.opacity(0.45))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 2)
+    }
+
     @ViewBuilder
     private var bottomRegion: some View {
         switch model.mode {
@@ -194,11 +278,9 @@ struct FocusPage: View {
                     SoundtrackPanel(
                         soundtrack: entry,
                         paused: model.activeSourcePaused,
-                        canSwitchToMix: !model.state.isEmpty,
                         errorCode: model.soundtrackError?.id == id ? model.soundtrackError?.code : nil,
                         onTogglePause: { model.togglePlayAll() },
-                        onVolumeChange: { v in model.setSoundtrackVolume(id: id, volume: v) },
-                        onSwitchToMix: { model.switchToMix() }
+                        onVolumeChange: { v in model.setSoundtrackVolume(id: id, volume: v) }
                     )
                     .padding(.horizontal, 16)
                 }

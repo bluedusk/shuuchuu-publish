@@ -25,7 +25,6 @@ enum SaveMode: Equatable {
 final class AppModel: ObservableObject {
     @Published private(set) var categories: [Category] = []
     private var trackIndex: [String: Track] = [:]
-    private var forwardCancellables: Set<AnyCancellable> = []
 
     let catalog: Catalog
     let cache: AudioCache
@@ -177,17 +176,6 @@ final class AppModel: ObservableObject {
             .receive(on: RunLoop.main)
             .assign(to: &$currentlyLoadedMixId)
 
-        // Re-publish nested ObservableObject changes (FocusSession, FocusSettings,
-        // MixState) so views observing only `model` — e.g. the MenuBarExtra label —
-        // refresh when those sub-objects change.
-        for forwarded in [session.objectWillChange,
-                          focusSettings.objectWillChange,
-                          state.objectWillChange,
-                          license.objectWillChange] {
-            forwarded
-                .sink { [weak self] in self?.objectWillChange.send() }
-                .store(in: &forwardCancellables)
-        }
     }
 
     // MARK: - License gate
@@ -551,6 +539,10 @@ final class AppModel: ObservableObject {
         mixer.stopAll()
         // Flush any debounced persist so a mid-drag volume isn't lost on sleep.
         state.flushPersist()
+        // Push the in-memory wall-clock floor to keychain so a relaunch after
+        // sleep can detect clock rollback. (License timer doesn't persist on
+        // every tick — see LicenseStorage.lastSeenWallclock.)
+        license.flushPersist()
         session.pause()
     }
 

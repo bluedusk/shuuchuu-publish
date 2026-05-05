@@ -2,16 +2,15 @@ import SwiftUI
 import AppKit
 
 /// Single-soundtrack panel rendered on the Focus page when `mode == .soundtrack`.
-/// Shows logo, title, sub-line, volume, pause, and a "Switch to mix" link if a
-/// saved mix exists to fall back to.
+/// Shows logo, title, sub-line, volume, and pause. The "Switch to mix" link is
+/// rendered as a sibling in `FocusPage.bottomRegion` to stay structurally
+/// symmetric with the mix-mode "Switch to soundtrack" link.
 struct SoundtrackPanel: View {
     let soundtrack: WebSoundtrack
     let paused: Bool
-    let canSwitchToMix: Bool
     let errorCode: Int?
     let onTogglePause: () -> Void
     let onVolumeChange: (Double) -> Void
-    let onSwitchToMix: () -> Void
 
     @EnvironmentObject var design: DesignSettings
     @State private var hovered = false
@@ -80,16 +79,6 @@ struct SoundtrackPanel: View {
                     .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.4))
                     .multilineTextAlignment(.center)
                     .padding(.top, 4)
-            }
-
-            if canSwitchToMix {
-                Button(action: onSwitchToMix) {
-                    Text("Switch to mix")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.white.opacity(0.45))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
             }
         }
     }

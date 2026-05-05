@@ -18,6 +18,7 @@ struct ShuuchuuApp: App {
                 .environmentObject(model)
                 .environmentObject(design)
                 .environmentObject(model.updates)
+                .environmentObject(model.license)
                 .task { await model.handleLaunch() }
                 .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in
                     Task { await model.handleSleep() }
@@ -30,6 +31,9 @@ struct ShuuchuuApp: App {
                 .environmentObject(model)
                 .environmentObject(design)
                 .environmentObject(model.updates)
+                .environmentObject(model.session)
+                .environmentObject(model.focusSettings)
+                .environmentObject(model.license)
         }
         .menuBarExtraStyle(.window)
     }
@@ -70,11 +74,12 @@ extension AppModel {
         }
         let scene = SceneController(library: scenesLibrary,
                                     renderer: shaderRenderer)
-        // Native Keychain. Stable identity is supplied by `scripts/run`, which
-        // signs the binary with a persistent self-signed cert ("Shuuchuu Dev
-        // Signing Cert") so Keychain ACLs survive rebuilds.
+        // Keychain via /usr/bin/security CLI. Shells out so the access is made
+        // by Apple's stable-signed binary, sidestepping the prompt-every-launch
+        // problem that hits unsigned dev builds using SecItem* directly.
+        // Mirrors x-island's LicenseManager pattern.
         let licenseStorage = LicenseStorage(
-            backend: KeychainLicenseBackend(service: Constants.License.keychainService)
+            backend: SecurityCLILicenseBackend(service: Constants.License.keychainService)
         )
         let licenseClient = LemonSqueezyClient(apiBase: Constants.License.apiBase)
         let license = LicenseController(

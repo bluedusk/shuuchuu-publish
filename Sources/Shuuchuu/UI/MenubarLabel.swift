@@ -6,6 +6,9 @@ struct MenubarLabel: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
     @EnvironmentObject var updates: UpdateChecker
+    @EnvironmentObject var session: FocusSession
+    @EnvironmentObject var focusSettings: FocusSettings
+    @EnvironmentObject var license: LicenseController
 
     var body: some View {
         // Single Text whose contents are computed reactively. Avoids structural
@@ -14,8 +17,8 @@ struct MenubarLabel: View {
             Text(labelString)
                 .font(.system(size: 13, weight: .medium))
                 .monospacedDigit()
-                .opacity(model.session.isRunning ? 1.0 : 0.6)
-            if !model.license.isUnlocked {
+                .opacity(session.isRunning ? 1.0 : 0.6)
+            if !license.isUnlocked {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
@@ -29,15 +32,15 @@ struct MenubarLabel: View {
     }
 
     private var labelString: String {
-        let prefix = (model.session.phase == .focus) ? "集中" : "休憩"
-        guard model.focusSettings.menubarTimer else { return prefix }
+        let prefix = (session.phase == .focus) ? "集中" : "休憩"
+        guard focusSettings.menubarTimer else { return prefix }
         return "\(prefix) \(timerString)"
     }
 
     private var timerString: String {
         // Show ceiling-of-minutes so the displayed value is the minute currently
         // ticking down (e.g. 24:30 reads as "25m", flips to "24m" once it crosses).
-        let mins = (model.session.remainingSec + 59) / 60
+        let mins = (session.remainingSec + 59) / 60
         return "\(mins)m"
     }
 }

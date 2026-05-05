@@ -3,6 +3,7 @@ import SwiftUI
 struct ScenePicker: View {
     let scenes: [Scene]
     let activeId: String?
+    let renderer: ShaderRenderer
     let onSelect: (String?) -> Void
 
     private static let columns = [
@@ -70,28 +71,9 @@ struct ScenePicker: View {
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder
     private func thumbnail(_ scene: Scene) -> some View {
-        if let img = thumbnailImage(scene) {
-            Image(nsImage: img)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        } else {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.black.opacity(0.5))
-        }
-    }
-
-    private func thumbnailImage(_ scene: Scene) -> NSImage? {
-        // SPM `process` resources flatten paths; thumbnails live alongside .metal
-        // files but appear at the bundle root. Look up by stem.
-        let stem = (scene.thumbnail as NSString).deletingPathExtension
-        guard let url = Bundle.module.url(forResource: stem,
-                                          withExtension: "jpg") else {
-            return nil
-        }
-        return NSImage(contentsOf: url)
+        SceneTilePreview(scene: scene, renderer: renderer)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var selectionRing: some View {

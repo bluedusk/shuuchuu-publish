@@ -1,0 +1,71 @@
+#!/bin/zsh
+# Build, code-sign with a stable self-signed identity, and run Shuuchuu.
+#
+# Why not just `swift run`: the default ad-hoc signature hashes binary content,
+# so every rebuild yields a new code identity. Keychain ACLs match on that
+# identity, which means macOS prompts "Shuuchuu wants to use your keychain"
+# on every launch even after clicking "Always Allow". A persistent self-signed
+# cert has a stable SHA-1 fingerprint — Keychain records it once, the prompt
+# stays answered.
+#
+# The cert is created on first run and lives in your login keychain forever.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+binary="$repo_root/.build/arm64-apple-macosx/debug/Shuuchuu"
+cert_cn="Shuuchuu Dev Signing Cert"
+cert_dir="$HOME/Library/Application Support/Shuuchuu/dev-signing"
+
+cd "$repo_root"
+
+swift build
+
+# One-time cert creation. Idempotent.
+if ! security find-certificate -c "$cert_cn" >/dev/null 2>&1; then
+    echo "Creating persistent dev signing cert '$cert_cn' (one-time)…"
+    mkdir -p "$cert_dir"
+    chmod 700 "$cert_dir"
+
+    openssl_cfg="$cert_dir/openssl.cnf"
+    cat > "$openssl_cfg" <<EOF
+[req]
+distinguished_name = dn
+prompt = no
+x509_extensions = v3
+
+[dn]
+CN = $cert_cn
+
+[v3]
+basicConstraints = critical, CA:false
+keyUsage = critical, digitalSignature
+extendedKeyUsage = codeSigning
+EOF
+
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout "$cert_dir/signing.key" -out "$cert_dir/signing.crt" \
+        -days 3650 -config "$openssl_cfg" >/dev/null 2>&1
+
+    # openssl 3.x with empty p12 password fails import; use a dummy.
+    openssl pkcs12 -export -legacy \
+        -inkey "$cert_dir/signing.key" -in "$cert_dir/signing.crt" \
+        -out "$cert_dir/signing.p12" -password "pass:shuuchuu-dev" >/dev/null 2>&1
+
+    security import "$cert_dir/signing.p12" \
+        -k "$HOME/Library/Keychains/login.keychain-db" \
+        -P "shuuchuu-dev" -T /usr/bin/codesign -A >/dev/null
+
+    # Trust the cert for code signing in the user keychain (no sudo).
+    security add-trusted-cert -p codeSign \
+        -k "$HOME/Library/Keychains/login.keychain-db" "$cert_dir/signing.crt" \
+        >/dev/null 2>&1 || true
+
+    echo "Signing cert created."
+fi
+
+codesign --force --sign "$cert_cn" "$binary"
+
+# Replace any stale running instance.
+pkill -x Shuuchuu 2>/dev/null || true
+
+exec "$binary"

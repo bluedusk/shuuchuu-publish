@@ -5,6 +5,7 @@ import SwiftUI
 struct SoundsPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var design: DesignSettings
+    @EnvironmentObject var state: MixState
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,8 +60,8 @@ struct SoundsPage: View {
                 )
         }
         .buttonStyle(.plain)
-        .disabled(model.state.isEmpty || model.mode.isSoundtrack)
-        .opacity(model.state.isEmpty || model.mode.isSoundtrack ? 0.4 : 1)
+        .disabled(state.isEmpty || model.mode.isSoundtrack)
+        .opacity(state.isEmpty || model.mode.isSoundtrack ? 0.4 : 1)
     }
 
     private var tabBar: some View {
@@ -77,7 +78,7 @@ struct SoundsPage: View {
     private var headerSubtitle: String {
         switch model.mode {
         case .soundtrack:       return "playing soundtrack"
-        case .mix, .idle:       return "\(model.state.count) in current mix"
+        case .mix, .idle:       return "\(state.count) in current mix"
         }
     }
 

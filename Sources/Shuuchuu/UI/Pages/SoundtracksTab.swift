@@ -1,7 +1,8 @@
 import SwiftUI
+import AppKit
 
 /// Body of the Soundtracks tab — the user's saved-soundtracks library plus
-/// paste-flow header and one-shot Spotify hint.
+/// paste-flow header and one-shot Spotify / YouTube hints.
 struct SoundtracksTab: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var library: SoundtracksLibrary
@@ -11,7 +12,10 @@ struct SoundtracksTab: View {
     @State private var addingMode = false
     @State private var expandedRowId: WebSoundtrack.ID?
 
-    private static let hintFlagKey = "shuuchuu.hasSeenSpotifyLoginHint"
+    private static let spotifyHintFlagKey = "shuuchuu.hasSeenSpotifyLoginHint"
+    private static let youtubeHintFlagKey = "shuuchuu.hasSeenYouTubeFDAHint"
+    private static let fullDiskAccessSettingsURL =
+        URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,6 +59,10 @@ struct SoundtracksTab: View {
 
                     if shouldShowSpotifyHint {
                         spotifyHint.padding(.top, 6)
+                    }
+
+                    if shouldShowYouTubeHint {
+                        youtubeHint.padding(.top, 6)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -147,7 +155,7 @@ struct SoundtracksTab: View {
     // MARK: - Spotify hint
 
     private var shouldShowSpotifyHint: Bool {
-        guard !UserDefaults.standard.bool(forKey: Self.hintFlagKey) else { return false }
+        guard !UserDefaults.standard.bool(forKey: Self.spotifyHintFlagKey) else { return false }
         return library.entries.contains(where: { $0.kind == .spotify })
     }
 
@@ -167,7 +175,41 @@ struct SoundtracksTab: View {
         .background(design.accent.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onTapGesture {
-            UserDefaults.standard.set(true, forKey: Self.hintFlagKey)
+            UserDefaults.standard.set(true, forKey: Self.spotifyHintFlagKey)
+        }
+    }
+
+    // MARK: - YouTube Premium hint
+
+    private var shouldShowYouTubeHint: Bool {
+        guard !UserDefaults.standard.bool(forKey: Self.youtubeHintFlagKey) else { return false }
+        return library.entries.contains(where: { $0.kind == .youtube })
+    }
+
+    private var youtubeHint: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 11))
+                .foregroundStyle(design.accent)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Want ad-free YouTube?")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                Text("Sign in to YouTube Premium in Safari, then tap here to grant Shuuchuu Full Disk Access. Your Premium session syncs from Safari.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Color.white.opacity(0.65))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(design.accent.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NSWorkspace.shared.open(Self.fullDiskAccessSettingsURL)
+            UserDefaults.standard.set(true, forKey: Self.youtubeHintFlagKey)
         }
     }
 

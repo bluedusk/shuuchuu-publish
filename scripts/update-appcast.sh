@@ -81,13 +81,12 @@ ${CHANNEL_TAG}
 EOF
 )
 
-# Insert after <language>en</language>
-TMP=$(mktemp)
-awk -v item="$NEW_ITEM" '
-    /<language>en<\/language>/ { print; print item; next }
-    { print }
-' "$APPCAST" > "$TMP"
-mv "$TMP" "$APPCAST"
+# Insert after <language>en</language>. `awk -v` mangles multi-line values, so
+# write the item to a temp file and use `sed r` to splice it in.
+NEW_ITEM_FILE=$(mktemp)
+echo "$NEW_ITEM" > "$NEW_ITEM_FILE"
+sed -i '' "/<language>en<\/language>/r $NEW_ITEM_FILE" "$APPCAST"
+rm "$NEW_ITEM_FILE"
 
 git add "$APPCAST"
 git commit -m "release: appcast v${X_NOISE_VERSION}"

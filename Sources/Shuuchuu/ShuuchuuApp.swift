@@ -19,6 +19,7 @@ struct ShuuchuuApp: App {
                 .environmentObject(design)
                 .environmentObject(model.updates)
                 .environmentObject(model.license)
+                .environmentObject(model.mixer)
                 .task { await model.handleLaunch() }
                 .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in
                     Task { await model.handleSleep() }

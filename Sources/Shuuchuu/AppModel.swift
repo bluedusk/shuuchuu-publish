@@ -243,6 +243,12 @@ final class AppModel: ObservableObject {
         mixer.reconcileNow()
     }
 
+    /// Retry a failed download. Tap-target for the error glyph in `SoundChip`.
+    func retryTrack(_ trackId: String) {
+        guard isLicensed else { return }
+        mixer.retry(id: trackId)
+    }
+
     func setTrackVolume(_ trackId: String, _ v: Float) {
         guard isLicensed else { return }
         state.setVolume(id: trackId, volume: v)

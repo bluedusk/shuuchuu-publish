@@ -20,6 +20,15 @@ final class MixingController: ObservableObject {
         didSet { masterMixer.outputVolume = masterVolume }
     }
 
+    /// Track ids whose `prepare()` is currently running. Set when an attach
+    /// kicks off, cleared when prepare returns (success or failure). Drives
+    /// the spinner overlay in `SoundChip` so streamed downloads are visible.
+    @Published private(set) var preparing: Set<String> = []
+
+    /// Track ids whose last `prepare()` threw. Cleared when the user removes
+    /// the track or explicitly retries. Drives the error glyph in `SoundChip`.
+    @Published private(set) var failed: Set<String> = []
+
     private let engine = AVAudioEngine()
     private let masterMixer = AVAudioMixerNode()
 
@@ -126,7 +135,25 @@ final class MixingController: ObservableObject {
 
         guard let track = resolveTrack(trackId) else { return }
         let source = makeSource(for: track)
-        do { try await source.prepare() } catch { return }
+
+        // Only show the spinner when prepare will actually hit the network. Cache
+        // hits, bundled tracks, and procedural sources finish in <100 ms — flagging
+        // them flashes a spurious spinner that the user (correctly) reads as a bug.
+        let willDownload = needsNetworkFetch(track)
+        failed.remove(trackId)
+        if willDownload { preparing.insert(trackId) }
+        do {
+            try await source.prepare()
+        } catch {
+            preparing.remove(trackId)
+            // Cancellation isn't a real failure — it just means the user removed
+            // the track or sleep fired mid-prepare. Don't flag those as errors.
+            if !(error is CancellationError) {
+                failed.insert(trackId)
+            }
+            return
+        }
+        preparing.remove(trackId)
 
         // Cancelled during prepare — `detach(id:)` or `stopAll()` ran while we were
         // preparing. Bail before touching engine state.
@@ -157,6 +184,8 @@ final class MixingController: ObservableObject {
         if let task = attaching.removeValue(forKey: id) {
             task.cancel()
         }
+        preparing.remove(id)
+        failed.remove(id)
         guard let entry = attached.removeValue(forKey: id) else { return }
         if entry.started {
             entry.source.stop()
@@ -189,7 +218,24 @@ final class MixingController: ObservableObject {
         // otherwise it'll complete after sleep and re-start the engine.
         for (_, task) in attaching { task.cancel() }
         attaching.removeAll()
+        preparing.removeAll()
+        failed.removeAll()
         if engine.isRunning { engine.pause() }
+    }
+
+    /// Clear the `failed` flag for a track and re-trigger reconcile so prepare
+    /// runs again. Called when the user taps a chip showing the error glyph.
+    func retry(id: String) {
+        failed.remove(id)
+        reconcile()
+    }
+
+    /// Returns true iff attaching this track will pull bytes over the network.
+    /// Procedural and bundled are always local; streamed is local iff `AudioCache`
+    /// already has the sha256 on disk.
+    private func needsNetworkFetch(_ track: Track) -> Bool {
+        guard case .streamed(let info) = track.kind else { return false }
+        return !cache.isCached(info)
     }
 
     private func makeSource(for track: Track) -> NoiseSource {

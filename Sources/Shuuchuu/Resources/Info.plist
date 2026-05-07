@@ -21,7 +21,7 @@
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/bluedusk/shuuchuu-publish/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
-    <string>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</string>
+    <string>BJoz2Xi65QN1WBwWU8Kz0x7H+rK3HCPw1A3Zjhv+WzM=</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
     <key>SUAutomaticallyUpdate</key>

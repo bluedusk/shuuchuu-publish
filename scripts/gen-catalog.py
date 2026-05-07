@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-"""Generate the bundled catalog.json that ships inside the app.
+"""Generate catalog.json that ships inside the app.
 
-Scans Sources/Shuuchuu/Resources/sounds/ for MP3 files and produces a
-catalog document with `kind: "bundled"` entries. The app reads this
-file from its Bundle at launch — no HTTP server, no R2, no downloads.
+Scans Sources/Shuuchuu/Resources/sounds/ for audio files and produces a
+catalog document. Two modes:
+
+- `streamed` (default): each entry is `kind: "streamed"` with
+  url=<base-url>/<prefix>/<id>.<ext>, sha256 (for integrity), and bytes.
+  The audio files are NOT bundled — they live in R2 and stream on demand.
+- `bundled`: each entry is `kind: "bundled"` with `filename`. Used only
+  if you want to ship the audio inside the app (legacy / offline build).
 
 Run from project root:
     python3 scripts/gen-catalog.py > Sources/Shuuchuu/Resources/catalog.json
+    python3 scripts/gen-catalog.py --prefix loops > Sources/Shuuchuu/Resources/catalog.json
+    python3 scripts/gen-catalog.py --mode bundled > Sources/Shuuchuu/Resources/catalog.json
 """
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 import sys
 from typing import Optional
 
@@ -20,7 +29,7 @@ CATEGORIES = [
         "rain", "rain_on_surface", "loud_rain", "thunder",
     ]),
     ("nature", "Nature", [
-        "wind", "fire", "stream",
+        "wind", "fire", "campfire_river", "stream",
         "ocean", "ocean_waves", "ocean_boat", "ocean_bubbles", "ocean_splash",
     ]),
     ("animals", "Animals", [
@@ -61,9 +70,37 @@ def find_audio_file(sounds_dir: str, track_id: str) -> Optional[str]:
     return None
 
 
-def build(sounds_dir: str) -> dict:
+def sha256_of(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def kbps_of(path: str) -> Optional[int]:
+    """Return the audio bitrate in kbps, rounded to the nearest kilobit, or
+    None if ffprobe isn't available or the file has no audio stream."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a:0",
+             "-show_entries", "stream=bit_rate", "-of", "csv=p=0", path],
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    if not out or out == "N/A":
+        return None
+    try:
+        return round(int(out) / 1000)
+    except ValueError:
+        return None
+
+
+def build(sounds_dir: str, mode: str, base_url: str, prefix: str) -> dict:
     categories = []
     seen = set()
+    prefix = prefix.strip("/")
 
     for cat_id, cat_name, track_ids in CATEGORIES:
         tracks = []
@@ -73,12 +110,22 @@ def build(sounds_dir: str) -> dict:
                 print(f"warn: missing audio for {tid} (any of {AUDIO_EXTS})", file=sys.stderr)
                 continue
             seen.add(fname)
-            tracks.append({
-                "id": tid,
-                "name": pretty_name(tid),
-                "kind": "bundled",
-                "filename": fname,
-            })
+            path = os.path.join(sounds_dir, fname)
+            entry: dict = {"id": tid, "name": pretty_name(tid)}
+            if mode == "bundled":
+                entry["kind"] = "bundled"
+                entry["filename"] = fname
+            else:
+                ext = os.path.splitext(fname)[1].lstrip(".").lower()
+                digest = sha256_of(path)
+                kbps = kbps_of(path)
+                stem = f"{tid}_{kbps}kbps" if kbps else tid
+                key = f"{prefix}/{stem}.{ext}" if prefix else f"{stem}.{ext}"
+                entry["kind"] = "streamed"
+                entry["url"] = f"{base_url.rstrip('/')}/{key}"
+                entry["sha256"] = digest
+                entry["bytes"] = os.path.getsize(path)
+            tracks.append(entry)
         if tracks:
             categories.append({"id": cat_id, "name": cat_name, "tracks": tracks})
 
@@ -93,9 +140,13 @@ def build(sounds_dir: str) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sounds-dir", default="Sources/Shuuchuu/Resources/sounds")
+    ap.add_argument("--mode", choices=["streamed", "bundled"], default="streamed")
+    ap.add_argument("--base-url", default="https://music.secure-app.download")
+    ap.add_argument("--prefix", default="loops",
+                    help="key prefix in the bucket (e.g. 'loops' -> loops/<id>.mp3). Empty for flat.")
     args = ap.parse_args()
 
-    doc = build(args.sounds_dir)
+    doc = build(args.sounds_dir, args.mode, args.base_url, args.prefix)
     json.dump(doc, sys.stdout, indent=2)
     sys.stdout.write("\n")
 

@@ -8,6 +8,7 @@ struct SoundsBrowseView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var favorites: Favorites
     @EnvironmentObject var state: MixState
+    @EnvironmentObject var mixer: MixingController
 
     @State private var selectedFilters: Set<String> = []
 
@@ -101,12 +102,18 @@ struct SoundsBrowseView: View {
                     HStack(spacing: chipSpacing) {
                         ForEach(rowTracks) { track in
                             let mixTrack = state.track(track.id)
+                            let isFailed = mixer.failed.contains(track.id)
                             SoundChip(
                                 track: track,
                                 isOn: mixTrack != nil,
                                 volume: mixTrack?.volume ?? 0,
                                 isFavorite: favorites.contains(track.id),
-                                onTap: { model.toggleTrack(track) },
+                                isPreparing: mixer.preparing.contains(track.id),
+                                isFailed: isFailed,
+                                onTap: {
+                                    if isFailed { model.retryTrack(track.id) }
+                                    else { model.toggleTrack(track) }
+                                },
                                 onVolumeChange: { v in model.setTrackVolume(track.id, v) },
                                 onAdjustVolume: { delta in
                                     let cur = state.track(track.id)?.volume ?? 0

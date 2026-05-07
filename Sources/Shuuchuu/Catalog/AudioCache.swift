@@ -44,6 +44,15 @@ actor AudioCache {
         try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
     }
 
+    /// Sync, nonisolated — used by `MixingController` to decide whether attaching
+    /// a streamed track will hit the network. Lets the UI suppress the spinner
+    /// for cache hits, where prepare resolves locally in <100 ms.
+    nonisolated func isCached(_ info: StreamedInfo) -> Bool {
+        let ext = Self.safeExtension(for: info.url)
+        let fileURL = baseDir.appendingPathComponent("\(info.sha256).\(ext)")
+        return FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
     func localURL(for info: StreamedInfo) async throws -> URL {
         try Self.validateHash(info.sha256)
 

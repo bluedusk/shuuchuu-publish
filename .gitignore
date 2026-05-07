@@ -26,3 +26,7 @@ Sources/Shuuchuu/Resources/scenes.json
 .env
 output/
 *.zip
+
+# local harness state
+.claude/
+.wrangler/

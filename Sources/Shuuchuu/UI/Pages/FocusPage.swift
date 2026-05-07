@@ -367,17 +367,23 @@ struct FocusPage: View {
     }
 
     private var emptyPlaceholder: some View {
-        Text("No sounds playing — tap Select below")
-            .font(.system(size: 11))
-            .shText(.tertiary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(
-                        Color.white.opacity(0.15),
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                    )
-            )
+        Button {
+            model.goTo(.sounds)
+        } label: {
+            Text("No sounds playing — tap to pick")
+                .font(.system(size: 11))
+                .shText(.tertiary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(
+                            Color.white.opacity(0.15),
+                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                        )
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -14,7 +14,7 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/Shuuchuu",
-            exclude: ["Resources/Info.plist"],
+            exclude: ["Resources/Info.plist", "Resources/sounds"],
             resources: [.process("Resources")],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),

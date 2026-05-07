@@ -475,7 +475,7 @@ struct SettingsPage: View {
         Text(title.uppercased())
             .font(.system(size: 12, weight: .semibold))
             .kerning(0.72)
-            .shText(.secondary)
+            .foregroundStyle(design.accent)
             .padding(.top, 10)
             .padding(.bottom, 4)
     }

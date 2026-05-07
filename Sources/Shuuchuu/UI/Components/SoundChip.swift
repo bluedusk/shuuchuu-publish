@@ -11,6 +11,12 @@ struct SoundChip: View {
     let isOn: Bool
     let volume: Float
     let isFavorite: Bool
+    /// `true` while the source is downloading / decoding. Drives a spinner
+    /// over the icon so first-play of a streamed track isn't silent-feeling.
+    let isPreparing: Bool
+    /// `true` if the last `prepare()` threw (404, integrity failure, offline).
+    /// Tap retries.
+    let isFailed: Bool
     let onTap: () -> Void
     let onVolumeChange: (Float) -> Void
     /// Adjust volume by a delta (positive = louder). Parent reads the latest value
@@ -93,10 +99,8 @@ struct SoundChip: View {
 
     private var chipBody: some View {
         HStack(spacing: 10) {
-            Image(systemName: icon.symbol)
-                .font(.system(size: 16, weight: .light))
+            iconSlot
                 .frame(width: 20, height: 20)
-                .foregroundStyle(isOn ? Color.white : .primary.opacity(0.75))
 
             Text(track.name)
                 .font(.system(size: 11, weight: .medium))
@@ -114,6 +118,26 @@ struct SoundChip: View {
         .overlay(border)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: isOn ? design.accent.opacity(0.45) : .clear, radius: 6, y: 3)
+    }
+
+    /// Three-state icon slot: error glyph if failed, spinner if preparing,
+    /// otherwise the track icon. Same footprint in all states so the chip
+    /// doesn't reflow.
+    @ViewBuilder
+    private var iconSlot: some View {
+        if isFailed {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.42))
+        } else if isPreparing {
+            ProgressView()
+                .controlSize(.small)
+                .tint(isOn ? Color.white : Color.white.opacity(0.7))
+        } else {
+            Image(systemName: icon.symbol)
+                .font(.system(size: 16, weight: .light))
+                .foregroundStyle(isOn ? Color.white : .primary.opacity(0.75))
+        }
     }
 
     private var star: some View {

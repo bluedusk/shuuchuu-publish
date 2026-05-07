@@ -129,7 +129,7 @@ if [[ -d "$RESOURCE_BUNDLE" ]]; then
 fi
 
 # Embed Sparkle.framework
-SPARKLE_FRAMEWORK=$(find .build -name "Sparkle.framework" -type d -path "*/Sparkle/Sparkle.framework" | head -1)
+SPARKLE_FRAMEWORK=$(find .build/artifacts -path "*/Sparkle.xcframework/*/Sparkle.framework" -type d ! -path "*index-build*" ! -path "*dSYM*" | head -1)
 if [[ -z "$SPARKLE_FRAMEWORK" ]]; then
     echo "Error: Sparkle.framework not found in .build/"
     exit 1

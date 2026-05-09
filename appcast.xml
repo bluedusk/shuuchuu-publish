@@ -6,6 +6,21 @@
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
         <item>
+            <title>Version 0.1.1</title>
+            <pubDate>Sat, 09 May 2026 14:44:36 +1000</pubDate>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+
+            <description><![CDATA[<ul>Sparkle update flow test.</li></ul>]]></description>
+            <enclosure
+                url="https://github.com/bluedusk/shuuchuu-publish/releases/download/v0.1.1/Shuuchuu.zip"
+                sparkle:version="3"
+                sparkle:shortVersionString="0.1.1"
+                sparkle:edSignature="B8/QjHC6vlZO378+P+hz5kGzveNvhs721gQVB1HwJvNi8k3Wx8VtyLHajxECE91cT7D+37djsUcjVizqducDCA=="
+                length="2177155"
+                type="application/octet-stream"
+            />
+        </item>
+        <item>
             <title>Version 0.1.0</title>
             <pubDate>Sat, 09 May 2026 14:33:45 +1000</pubDate>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>

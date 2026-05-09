@@ -5,5 +5,20 @@
         <link>https://github.com/bluedusk/shuuchuu-publish/releases</link>
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
+        <item>
+            <title>Version 0.1.0</title>
+            <pubDate>Sat, 09 May 2026 14:33:45 +1000</pubDate>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+
+            <description><![CDATA[<ul>Initial release.</li></ul>]]></description>
+            <enclosure
+                url="https://github.com/bluedusk/shuuchuu-publish/releases/download/v0.1.0/Shuuchuu.zip"
+                sparkle:version="2"
+                sparkle:shortVersionString="0.1.0"
+                sparkle:edSignature="pvhhTmKmxer403WHWjMdgoYl/bfpko5QQu3GuVD6pcSzYl9jnVTJP8QH6M6AS1pQpojaUSS6SvGP2UmDXQyEDg=="
+                length="2177109"
+                type="application/octet-stream"
+            />
+        </item>
     </channel>
 </rss>

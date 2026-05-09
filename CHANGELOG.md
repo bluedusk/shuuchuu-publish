@@ -1,3 +1,7 @@
+## [0.1.0] - 2026-05-09
+
+Initial release.
+
 # Changelog
 
 All notable changes to Shuuchuu are documented here. Format follows

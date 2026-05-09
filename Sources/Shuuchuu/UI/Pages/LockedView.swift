@@ -7,6 +7,7 @@ import AppKit
 struct LockedView: View {
     @EnvironmentObject var design: DesignSettings
     @EnvironmentObject var license: LicenseController
+    @EnvironmentObject var updates: UpdateChecker
 
     enum Mode { case intro, activate }
     @State private var mode: Mode = .intro
@@ -28,9 +29,22 @@ struct LockedView: View {
             case .activate: activationForm
             }
             Spacer(minLength: 0)
+            checkForUpdatesLink
+                .padding(.bottom, 16)
         }
         .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var checkForUpdatesLink: some View {
+        Button { updates.checkForUpdates() } label: {
+            Text("Check for updates")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(.secondary)
+                .underline()
+        }
+        .buttonStyle(.plain)
+        .disabled(!updates.canCheckForUpdates)
     }
 
     // MARK: - Header pieces

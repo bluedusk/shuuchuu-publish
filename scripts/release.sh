@@ -136,6 +136,12 @@ if [[ -z "$SPARKLE_FRAMEWORK" ]]; then
 fi
 cp -R "$SPARKLE_FRAMEWORK" "$APP_DIR/Contents/Frameworks/"
 
+# SPM links the binary with only @loader_path on the rpath. Sparkle is loaded via
+# @rpath/Sparkle.framework/... and lives in Contents/Frameworks, so we have to
+# teach the binary where to look before signing (signature covers load commands).
+install_name_tool -add_rpath "@executable_path/../Frameworks" \
+    "$APP_DIR/Contents/MacOS/${APP_NAME}"
+
 # Sign (deep, hardened, with entitlements)
 echo "Signing..."
 codesign --deep --force --options runtime \
